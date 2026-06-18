@@ -1176,14 +1176,19 @@ class ReferralService:
                     patient_data['mews_score'] = mews_result['total_score']
                     patient_data['mews_risk_level'] = mews_result['risk_level']
                 
-                # Remove auto_assign_ambulance from patient_data as it's not a Patient model field
-                auto_assign = patient_data.pop('auto_assign_ambulance', False)
-                assigned_ambulance = patient_data.pop('assigned_ambulance', None)
+                # Get ambulance assignment values BEFORE removing from patient_data
+                auto_assign = patient_data.get('auto_assign_ambulance', False)
+                assigned_ambulance = patient_data.get('assigned_ambulance', None)
+                
+                # Create a clean dictionary for the Patient model (remove non-model fields)
+                patient_model_data = {k: v for k, v in patient_data.items() 
+                                      if k not in ['auto_assign_ambulance', 'assigned_ambulance']}
                 
                 # Set referral time to current computer time
-                patient_data['referral_time'] = datetime.now()
+                patient_model_data['referral_time'] = datetime.now()
                 
-                patient = Patient(**patient_data)
+                # Create patient with cleaned data
+                patient = Patient(**patient_model_data)
                 session.add(patient)
                 session.flush()
                 
@@ -1653,7 +1658,6 @@ class DashboardUI:
         
         with col1:
             self._display_referral_trends()
-        
         with col2:
             self._display_mews_distribution()
         
@@ -1664,7 +1668,6 @@ class DashboardUI:
         
         with col1:
             self._display_cost_analytics()
-        
         with col2:
             self._display_performance_metrics(kpis)
         
