@@ -141,16 +141,6 @@ class Patient(Base):
     trip_fuel_cost = Column(Float)
     trip_cost_savings = Column(Float, default=0.0)
     actual_distance_covered = Column(Float)  # Track actual distance covered
-    
-    # MEWS Triage fields
-    mews_score = Column(Integer, default=0)
-    mews_risk_level = Column(String(20), default='Low')
-    respiratory_rate = Column(Integer)
-    heart_rate = Column(Integer)
-    systolic_bp = Column(Integer)
-    temperature = Column(Float)
-    oxygen_saturation = Column(Integer)
-    avpu = Column(String(10))
 
 class Ambulance(Base):
     __tablename__ = 'ambulances'
@@ -215,9 +205,6 @@ class HandoverForm(Base):
     distance_covered = Column(Float)
     fuel_cost = Column(Float)
     total_cost = Column(Float)
-    # MEWS score at handover
-    mews_score = Column(Integer)
-    mews_risk_level = Column(String(20))
 
 class Communication(Base):
     __tablename__ = 'communications'
@@ -268,124 +255,6 @@ def session_scope():
         raise
     finally:
         session.close()
-
-# MEWS (Modified Early Warning Score) Triage System
-class MEWSTriage:
-    """Modified Early Warning Score for patient assessment"""
-    
-    @staticmethod
-    def calculate_score(respiratory_rate: int, heart_rate: int, systolic_bp: int, 
-                        temperature: float, oxygen_saturation: int, avpu: str) -> Dict:
-        """Calculate MEWS score and risk level"""
-        score = 0
-        details = {}
-        
-        # Respiratory Rate
-        if respiratory_rate <= 8:
-            rr_score = 2
-        elif 9 <= respiratory_rate <= 11:
-            rr_score = 1
-        elif 12 <= respiratory_rate <= 20:
-            rr_score = 0
-        elif 21 <= respiratory_rate <= 24:
-            rr_score = 2
-        else:  # >24
-            rr_score = 3
-        score += rr_score
-        details['respiratory_rate'] = {'value': respiratory_rate, 'score': rr_score}
-        
-        # Heart Rate
-        if heart_rate <= 40:
-            hr_score = 2
-        elif 41 <= heart_rate <= 50:
-            hr_score = 1
-        elif 51 <= heart_rate <= 100:
-            hr_score = 0
-        elif 101 <= heart_rate <= 110:
-            hr_score = 1
-        elif 111 <= heart_rate <= 130:
-            hr_score = 2
-        else:  # >130
-            hr_score = 3
-        score += hr_score
-        details['heart_rate'] = {'value': heart_rate, 'score': hr_score}
-        
-        # Systolic BP
-        if systolic_bp <= 70:
-            bp_score = 3
-        elif 71 <= systolic_bp <= 80:
-            bp_score = 2
-        elif 81 <= systolic_bp <= 100:
-            bp_score = 1
-        elif 101 <= systolic_bp <= 199:
-            bp_score = 0
-        else:  # >=200
-            bp_score = 2
-        score += bp_score
-        details['systolic_bp'] = {'value': systolic_bp, 'score': bp_score}
-        
-        # Temperature
-        if temperature < 35.0:
-            temp_score = 2
-        elif 35.0 <= temperature <= 38.4:
-            temp_score = 0
-        else:  # >38.4
-            temp_score = 2
-        score += temp_score
-        details['temperature'] = {'value': temperature, 'score': temp_score}
-        
-        # Oxygen Saturation
-        if oxygen_saturation <= 91:
-            o2_score = 2
-        elif 92 <= oxygen_saturation <= 93:
-            o2_score = 1
-        else:  # >=94
-            o2_score = 0
-        score += o2_score
-        details['oxygen_saturation'] = {'value': oxygen_saturation, 'score': o2_score}
-        
-        # AVPU (Alert, Voice, Pain, Unresponsive)
-        avpu_scores = {'Alert': 0, 'Voice': 1, 'Pain': 2, 'Unresponsive': 3}
-        avpu_score = avpu_scores.get(avpu, 0)
-        score += avpu_score
-        details['avpu'] = {'value': avpu, 'score': avpu_score}
-        
-        # Determine risk level
-        if score <= 1:
-            risk_level = 'Low'
-            recommendation = 'Routine monitoring. Clinical review within 4 hours.'
-            color = 'green'
-        elif 2 <= score <= 3:
-            risk_level = 'Medium'
-            recommendation = 'Increase frequency of observations. Clinical review within 1 hour.'
-            color = 'yellow'
-        elif 4 <= score <= 5:
-            risk_level = 'High'
-            recommendation = 'Urgent clinical review. Consider escalation to senior clinician.'
-            color = 'orange'
-        else:  # score >= 6
-            risk_level = 'Critical'
-            recommendation = 'Immediate emergency response. Call emergency team now!'
-            color = 'red'
-        
-        return {
-            'total_score': score,
-            'risk_level': risk_level,
-            'recommendation': recommendation,
-            'color': color,
-            'details': details
-        }
-    
-    @staticmethod
-    def get_triage_badge(risk_level: str) -> str:
-        """Get HTML badge for risk level display"""
-        colors = {
-            'Low': 'green',
-            'Medium': 'yellow',
-            'High': 'orange',
-            'Critical': 'red'
-        }
-        return f'<span style="background-color: {colors.get(risk_level, "gray")}; padding: 4px 12px; border-radius: 20px; color: white; font-weight: bold;">{risk_level}</span>'
 
 # Enhanced Authentication System
 class Authentication:
@@ -463,15 +332,10 @@ class Authentication:
             return False
 
     def setup_auth_ui(self):
-        with st.sidebar:
-            st.image("https://img.icons8.com/color/96/000000/hospital.png", width=80)
-            st.markdown("## 🏥 Kisumu County Health")
-            
+        st.sidebar.title("🔐 Authentication")
+        
         if not self.session.authenticated:
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("### 🔐 Access System")
-            
-            tab1, tab2 = st.sidebar.tabs(["Sign In", "Register"])
+            tab1, tab2 = st.sidebar.tabs(["Login", "Register"])
             
             with tab1:
                 self._login_form()
@@ -482,11 +346,10 @@ class Authentication:
 
     def _login_form(self):
         with st.form("login_form"):
-            st.markdown("#### Welcome Back")
-            username = st.text_input("Username", placeholder="Enter your username", key="login_username")
-            password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
+            username = st.text_input("Username", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
             
-            if st.form_submit_button("Sign In", use_container_width=True, type="primary"):
+            if st.form_submit_button("Login", use_container_width=True):
                 if not username or not password:
                     st.error("Please enter both username and password")
                     return
@@ -495,35 +358,32 @@ class Authentication:
                 if user:
                     self.session.authenticated = True
                     self.session.user = user
-                    st.sidebar.success(f"Welcome back, {user['name']}!")
+                    st.sidebar.success(f"Welcome {user['role']}!")
                     st.rerun()
                 else:
-                    st.error("Invalid credentials. Please try again.")
+                    st.error("Invalid credentials")
 
     def _register_form(self):
         if not self.session.authenticated:
-            st.info("🔐 Please login as admin to register new users")
+            st.info("Please login as admin to register new users")
             return
             
         if self.session.user['role'] != 'Admin':
-            st.warning("⚠️ Only administrators can register new users")
+            st.warning("Only administrators can register new users")
             return
             
         with st.form("register_form"):
-            st.markdown("#### Register New User")
+            st.subheader("Register New User")
             
-            col1, col2 = st.columns(2)
-            with col1:
-                username = st.text_input("Username", placeholder="Choose a username")
-                email = st.text_input("Email", placeholder="user@hospital.go.ke")
-                password = st.text_input("Password", type="password", placeholder="Enter password")
-            with col2:
-                confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm password")
-                name = st.text_input("Full Name", placeholder="Dr. John Doe")
-                role = st.selectbox("Role", ["Admin", "Hospital Staff", "Ambulance Driver"])
-                hospital = st.selectbox("Hospital", self._get_hospital_options())
+            username = st.text_input("Username")
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            name = st.text_input("Full Name")
+            role = st.selectbox("Role", ["Admin", "Hospital Staff", "Ambulance Driver"])
+            hospital = st.selectbox("Hospital", self._get_hospital_options())
             
-            if st.form_submit_button("Register User", use_container_width=True, type="primary"):
+            if st.form_submit_button("Register User", use_container_width=True):
                 if not all([username, email, password, name]):
                     st.error("Please fill all fields")
                     return
@@ -548,12 +408,11 @@ class Authentication:
         return list(HOSPITAL_LOCATIONS.keys())
 
     def _logout_section(self):
-        st.sidebar.markdown("---")
-        st.sidebar.markdown(f"### 👤 {self.session.user['name']}")
-        st.sidebar.markdown(f"**Role:** {self.session.user['role']}")
-        st.sidebar.markdown(f"**Hospital:** {self.session.user['hospital']}")
+        st.sidebar.success(f"Logged in as: {self.session.user['name']}")
+        st.sidebar.write(f"**Role:** {self.session.user['role']}")
+        st.sidebar.write(f"**Hospital:** {self.session.user['hospital']}")
         
-        if st.sidebar.button("Sign Out", use_container_width=True, type="secondary"):
+        if st.sidebar.button("Logout", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
@@ -578,7 +437,7 @@ class Authentication:
                     default_users = [
                         {
                             'username': 'admin',
-                            'email': 'admin@kisumu.go.ke',
+                            'email': 'admin@kisumu.gov',
                             'password': 'admin123',
                             'role': 'Admin',
                             'hospital': 'All Facilities',
@@ -594,7 +453,7 @@ class Authentication:
                         },
                         {
                             'username': 'driver',
-                            'email': 'driver@kisumu.go.ke',
+                            'email': 'driver@kisumu.gov',
                             'password': 'driver123',
                             'role': 'Ambulance Driver',
                             'hospital': 'Ambulance Service',
@@ -1012,26 +871,24 @@ class NotificationService:
         ambulance = data['ambulance']
         
         message = f"""
-🚑 **NEW PATIENT PICKUP ASSIGNMENT**
+🚑 NEW PATIENT PICKUP ASSIGNMENT
 
-**Patient:** {patient.name}
-**Age:** {patient.age}
-**Gender:** {patient.gender}
-**Condition:** {patient.condition}
-**Location:** {patient.referring_hospital}
-**Destination:** {patient.receiving_hospital}
-**Referring Physician:** {patient.referring_physician}
+Patient: {patient.name}
+Age: {patient.age}
+Gender: {patient.gender}
+Condition: {patient.condition}
+Location: {patient.referring_hospital}
+Destination: {patient.receiving_hospital}
+Referring Physician: {patient.referring_physician}
 
-**Clinical Notes:** {patient.notes or 'None'}
-**Medical History:** {patient.medical_history or 'None'}
-**Allergies:** {patient.allergies or 'None'}
-
-**MEWS Score:** {patient.mews_score or 'Not assessed'} - {patient.mews_risk_level or 'Unknown'}
+Clinical Notes: {patient.notes or 'None'}
+Medical History: {patient.medical_history or 'None'}
+Allergies: {patient.allergies or 'None'}
 
 Please proceed to {patient.referring_hospital} immediately for patient pickup.
 
-**Estimated Distance:** {patient.trip_distance or 'Calculating...'} km
-**Priority:** {patient.mews_risk_level or 'HIGH'}
+Estimated Distance: {patient.trip_distance or 'Calculating...'} km
+Priority: HIGH
 
 Reply to this message with your ETA or any issues.
         """.strip()
@@ -1056,17 +913,16 @@ Reply to this message with your ETA or any issues.
         ambulance = data['ambulance']
         
         message = f"""
-🚑 **PATIENT PICKED UP - AMBULANCE EN ROUTE**
+🚑 PATIENT PICKED UP - AMBULANCE EN ROUTE
 
-**Patient:** {patient.name}
-**Ambulance:** {ambulance.ambulance_id}
-**Driver:** {ambulance.driver_name}
-**Current Location:** {ambulance.current_location or 'En route'}
-**Estimated Arrival:** 15-25 minutes
+Patient: {patient.name}
+Ambulance: {ambulance.ambulance_id}
+Driver: {ambulance.driver_name}
+Current Location: {ambulance.current_location or 'En route'}
+Estimated Arrival: 15-25 minutes
 
-**Patient Condition:** {patient.condition}
-**MEWS Score:** {patient.mews_score or 'Not assessed'} - {patient.mews_risk_level or 'Unknown'}
-**Vital Signs:** {patient.vital_signs or 'Stable during transport'}
+Patient Condition: {patient.condition}
+Vital Signs: {patient.vital_signs or 'Stable during transport'}
 
 Please ensure receiving team is ready at emergency entrance.
         """.strip()
@@ -1091,13 +947,13 @@ Please ensure receiving team is ready at emergency entrance.
         ambulance = data['ambulance']
         
         message = f"""
-✅ **PATIENT ARRIVED AT DESTINATION**
+✅ PATIENT ARRIVED AT DESTINATION
 
-**Patient:** {patient.name} has arrived at {patient.receiving_hospital}
-**Ambulance:** {ambulance.ambulance_id}
-**Arrival Time:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-**Trip Distance:** {patient.trip_distance or 'Unknown'} km
-**Fuel Used:** {(patient.trip_distance * ambulance.fuel_consumption_rate) if patient.trip_distance else 'Unknown'} L
+Patient: {patient.name} has arrived at {patient.receiving_hospital}
+Ambulance: {ambulance.ambulance_id}
+Arrival Time: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Trip Distance: {patient.trip_distance or 'Unknown'} km
+Fuel Used: {(patient.trip_distance * ambulance.fuel_consumption_rate) if patient.trip_distance else 'Unknown'} L
 
 Patient handed over to receiving team.
 Ambulance status: Returning to service
@@ -1163,32 +1019,14 @@ class ReferralService:
                     patient_data['trip_distance'] = distance
                     patient_data['trip_fuel_cost'] = cost_estimate['total_cost_ksh']
                 
-                # Calculate MEWS score if vital signs are provided
-                if patient_data.get('heart_rate') and patient_data.get('systolic_bp'):
-                    mews_result = MEWSTriage.calculate_score(
-                        patient_data.get('respiratory_rate', 16),
-                        patient_data['heart_rate'],
-                        patient_data['systolic_bp'],
-                        patient_data.get('temperature', 36.6),
-                        patient_data.get('oxygen_saturation', 98),
-                        patient_data.get('avpu', 'Alert')
-                    )
-                    patient_data['mews_score'] = mews_result['total_score']
-                    patient_data['mews_risk_level'] = mews_result['risk_level']
-                
-                # Get ambulance assignment values BEFORE removing from patient_data
-                auto_assign = patient_data.get('auto_assign_ambulance', False)
-                assigned_ambulance = patient_data.get('assigned_ambulance', None)
-                
-                # Create a clean dictionary for the Patient model (remove non-model fields)
-                patient_model_data = {k: v for k, v in patient_data.items() 
-                                      if k not in ['auto_assign_ambulance', 'assigned_ambulance']}
+                # Remove auto_assign_ambulance from patient_data as it's not a Patient model field
+                auto_assign = patient_data.pop('auto_assign_ambulance', False)
+                assigned_ambulance = patient_data.pop('assigned_ambulance', None)
                 
                 # Set referral time to current computer time
-                patient_model_data['referral_time'] = datetime.now()
+                patient_data['referral_time'] = datetime.now()
                 
-                # Create patient with cleaned data
-                patient = Patient(**patient_model_data)
+                patient = Patient(**patient_data)
                 session.add(patient)
                 session.flush()
                 
@@ -1388,15 +1226,8 @@ class AnalyticsService:
                 Patient.status == 'Completed'
             ).count()
             
-            # MEWS stats
-            high_risk_patients = session.query(Patient).filter(
-                Patient.mews_risk_level.in_(['High', 'Critical'])
-            ).count()
-            
             avg_response_time = 0.0
             completion_rate = 0.0
-            if total_patients > 0:
-                completion_rate = (completed_referrals / total_patients) * 100
             
             # Calculate fuel efficiency
             fuel_efficiency = 0
@@ -1415,27 +1246,8 @@ class AnalyticsService:
                 'total_cost_savings': total_savings,
                 'total_distance_km': total_distance,
                 'fuel_efficiency': f"{fuel_efficiency:.1f} km/L",
-                'cost_efficiency': f"{(total_savings / total_fuel_cost * 100) if total_fuel_cost > 0 else 0:.1f}%",
-                'high_risk_patients': high_risk_patients,
-                'completed_referrals': completed_referrals
+                'cost_efficiency': f"{(total_savings / total_fuel_cost * 100) if total_fuel_cost > 0 else 0:.1f}%"
             }
-    
-    def get_mews_stats(self) -> Dict[str, any]:
-        with self.db_service.get_session() as session:
-            patients = session.query(Patient).all()
-            
-            risk_counts = {
-                'Low': 0,
-                'Medium': 0,
-                'High': 0,
-                'Critical': 0
-            }
-            
-            for patient in patients:
-                if patient.mews_risk_level:
-                    risk_counts[patient.mews_risk_level] = risk_counts.get(patient.mews_risk_level, 0) + 1
-            
-            return risk_counts
     
     def get_cost_analytics(self) -> Dict[str, any]:
         with self.db_service.get_session() as session:
@@ -1472,8 +1284,7 @@ class AnalyticsService:
                 df = pd.DataFrame([{
                     'date': p.referral_time.date(),
                     'condition': p.condition,
-                    'hospital': p.referring_hospital,
-                    'mews_risk': p.mews_risk_level or 'Unknown'
+                    'hospital': p.referring_hospital
                 } for p in patients])
                 trends = df.groupby('date').size().reset_index(name='count')
                 return trends
@@ -1619,167 +1430,94 @@ class LocationSimulator:
     def stop_simulation(self):
         self.running = False
 
-# Enhanced UI Components with Professional Styling
+# Enhanced UI Components
 class DashboardUI:
     def __init__(self, analytics_service: AnalyticsService, db_service: DatabaseService):
         self.analytics = analytics_service
         self.db_service = db_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">📊 Clinical & Operations Dashboard</h1>
-            <p style="color: rgba(255,255,255,0.8); text-align: center; margin-top: 0.5rem;">
-                Kisumu County Hospital Referral System - Real-time Analytics
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("📊 Dashboard Overview")
         
         kpis = self.analytics.get_kpis()
         
-        # Professional KPI Cards
-        col1, col2, col3, col4, col5 = st.columns(5)
+        self._display_kpi_metrics(kpis)
         
-        with col1:
-            self._kpi_card("Total Referrals", kpis['total_referrals'], "📋", "#4CAF50")
-        with col2:
-            self._kpi_card("Active Transfers", kpis['active_referrals'], "🚑", "#FF9800")
-        with col3:
-            self._kpi_card("Available Ambulances", kpis['available_ambulances'], "✅", "#2196F3")
-        with col4:
-            self._kpi_card("Completion Rate", kpis['completion_rate'], "📈", "#9C27B0")
-        with col5:
-            self._kpi_card("High Risk Patients", kpis['high_risk_patients'], "⚠️", "#F44336")
-        
-        st.markdown("---")
-        
-        # MEWS Risk Distribution
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            self._display_referral_trends()
-        with col2:
-            self._display_mews_distribution()
-        
-        st.markdown("---")
-        
-        # Cost Analytics
         col1, col2 = st.columns(2)
-        
         with col1:
             self._display_cost_analytics()
         with col2:
-            self._display_performance_metrics(kpis)
+            self._display_referral_trends()
         
-        st.markdown("---")
-        
-        st.subheader("📋 Recent Activity")
+        st.subheader("Recent Activity")
         self._display_recent_activity()
-    
-    def _kpi_card(self, label, value, icon, color):
-        st.markdown(f"""
-        <div style="background: white; border-radius: 10px; padding: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-left: 4px solid {color};">
-            <div style="font-size: 1.5rem; margin-bottom: 0.25rem;">{icon} {value}</div>
-            <div style="color: #666; font-size: 0.85rem;">{label}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    def _display_mews_distribution(self):
-        st.subheader("⚠️ MEWS Risk Distribution")
+
+    def _display_kpi_metrics(self, kpis: Dict):
+        col1, col2, col3, col4, col5 = st.columns(5)
         
-        mews_stats = self.analytics.get_mews_stats()
+        with col1:
+            st.metric("Total Referrals", kpis['total_referrals'])
+        with col2:
+            st.metric("Active Referrals", kpis['active_referrals'])
+        with col3:
+            st.metric("Available Ambulances", kpis['available_ambulances'])
+        with col4:
+            st.metric("Avg Response Time", kpis['avg_response_time'])
+        with col5:
+            st.metric("Completion Rate", kpis['completion_rate'])
         
-        if sum(mews_stats.values()) > 0:
-            fig = px.pie(
-                values=list(mews_stats.values()),
-                names=list(mews_stats.keys()),
-                color=list(mews_stats.keys()),
-                color_discrete_map={
-                    'Low': '#4CAF50',
-                    'Medium': '#FFC107',
-                    'High': '#FF9800',
-                    'Critical': '#F44336'
-                },
-                title="Patient Risk Distribution"
-            )
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No MEWS data available yet")
-    
-    def _display_performance_metrics(self, kpis):
-        st.subheader("📊 Performance Metrics")
-        
-        metrics = [
-            ("Total Ambulances", kpis['total_ambulances']),
-            ("Completion Rate", kpis['completion_rate']),
-            ("Fuel Efficiency", kpis['fuel_efficiency']),
-            ("Cost Efficiency", kpis['cost_efficiency'])
-        ]
-        
-        for i, (label, value) in enumerate(metrics):
-            color = ["#4CAF50", "#2196F3", "#FF9800", "#9C27B0"][i]
-            st.markdown(f"""
-            <div style="background: #f5f5f5; border-radius: 8px; padding: 0.75rem 1rem; margin: 0.5rem 0; border-left: 3px solid {color};">
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: #666;">{label}</span>
-                    <span style="font-weight: bold; color: {color};">{value}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Fuel Cost", f"KSh {kpis['total_fuel_cost']:,.0f}")
+        with col2:
+            st.metric("Cost Savings", f"KSh {kpis['total_cost_savings']:,.0f}")
+        with col3:
+            st.metric("Total Distance", f"{kpis['total_distance_km']:,.1f} km")
+        with col4:
+            st.metric("Fuel Efficiency", kpis['fuel_efficiency'])
+
     def _display_cost_analytics(self):
         st.subheader("💰 Cost Analytics")
         cost_data = self.analytics.get_cost_analytics()
         
+        # Only show chart if there are actual costs
         if cost_data['total_trip_costs'] > 0:
             fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=cost_data['months'],
                 y=cost_data['monthly_costs'],
                 name='Costs Incurred',
-                line=dict(color='#F44336', width=3),
-                fill='tozeroy',
-                fillcolor='rgba(244,67,54,0.1)'
+                line=dict(color='red', width=2)
             ))
             fig.add_trace(go.Scatter(
                 x=cost_data['months'],
                 y=cost_data['monthly_savings'],
                 name='Costs Saved',
-                line=dict(color='#4CAF50', width=3),
-                fill='tozeroy',
-                fillcolor='rgba(76,175,80,0.1)'
+                line=dict(color='green', width=2)
             ))
             fig.update_layout(
-                height=300,
+                title='Monthly Costs vs Savings',
                 xaxis_title='Month',
                 yaxis_title='Amount (KSh)',
-                hovermode='x unified',
-                showlegend=True,
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                hovermode='x unified'
             )
             st.plotly_chart(fig, use_container_width=True)
+            
+            # Additional cost metrics
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Trip Costs", f"KSh {cost_data['total_trip_costs']:,.0f}")
+            with col2:
+                st.metric("Total Trip Savings", f"KSh {cost_data['total_trip_savings']:,.0f}")
         else:
-            st.info("No cost data available yet. Complete handovers to see cost analytics.")
+            st.info("No cost data available yet. Costs will appear after patient handovers are completed.")
 
     def _display_referral_trends(self):
         st.subheader("📈 Referral Trends")
         
         trends_data = self.analytics.get_referral_trends()
         if not trends_data.empty:
-            fig = px.line(
-                trends_data, 
-                x='date', 
-                y='count',
-                line_shape='spline',
-                markers=True
-            )
-            fig.update_layout(
-                height=300,
-                xaxis_title='Date',
-                yaxis_title='Number of Referrals',
-                hovermode='x unified'
-            )
+            fig = px.line(trends_data, x='date', y='count', title="Daily Referrals")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No referral data available yet")
@@ -1788,7 +1526,7 @@ class DashboardUI:
         with self.db_service.get_session() as session:
             recent_patients = session.query(Patient).order_by(
                 Patient.referral_time.desc()
-            ).limit(10).all()
+            ).limit(5).all()
             
             if recent_patients:
                 data = []
@@ -1799,36 +1537,20 @@ class DashboardUI:
                         if patient.trip_cost_savings:
                             cost_info += f" (Saved: KSh {patient.trip_cost_savings:,.0f})"
                     
-                    # MEWS badge
-                    mews_badge = ""
-                    if patient.mews_risk_level:
-                        colors = {
-                            'Low': 'green',
-                            'Medium': 'yellow',
-                            'High': 'orange',
-                            'Critical': 'red'
-                        }
-                        mews_badge = f'<span style="background-color: {colors.get(patient.mews_risk_level, "gray")}; padding: 2px 10px; border-radius: 12px; color: white; font-size: 0.8rem;">{patient.mews_risk_level}</span>'
-                    
                     data.append({
-                        'Patient': patient.name,
+                        'Patient ID': patient.patient_id[:8] + '...',
+                        'Name': patient.name,
+                        'Gender': patient.gender,
                         'Condition': patient.condition,
-                        'From': patient.referring_hospital[:30] + '...' if len(patient.referring_hospital) > 30 else patient.referring_hospital,
-                        'To': patient.receiving_hospital[:30] + '...' if len(patient.receiving_hospital) > 30 else patient.receiving_hospital,
+                        'From': patient.referring_hospital,
+                        'To': patient.receiving_hospital,
                         'Status': patient.status,
-                        'MEWS': mews_badge,
-                        'Time': patient.referral_time.strftime('%d %b %H:%M')
+                        'Distance': f"{patient.trip_distance or 0:.1f} km",
+                        'Cost': cost_info,
+                        'Time': patient.referral_time.strftime('%Y-%m-%d %H:%M')
                     })
                 
-                st.dataframe(
-                    pd.DataFrame(data),
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        'MEWS': st.column_config.Column('MEWS Risk', width='small'),
-                        'Status': st.column_config.Column('Status', width='medium'),
-                    }
-                )
+                st.dataframe(pd.DataFrame(data), use_container_width=True)
             else:
                 st.info("No recent activity")
 
@@ -1839,16 +1561,9 @@ class ReferralUI:
         self.db_service = db_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">📋 Patient Referral Management</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Create and manage patient referrals with MEWS triage integration
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("📋 Patient Referral Management")
         
-        tab1, tab2, tab3 = st.tabs(["📝 New Referral", "🔄 Active Referrals", "📚 History"])
+        tab1, tab2, tab3 = st.tabs(["Create Referral", "Active Referrals", "Referral History"])
         
         with tab1:
             self._create_referral_form()
@@ -1858,12 +1573,12 @@ class ReferralUI:
             self._display_referral_history()
 
     def _create_referral_form(self):
-        st.markdown("### 📝 New Patient Referral")
+        st.subheader("Create New Patient Referral")
         
         with st.form("referral_form", clear_on_submit=True):
             patient_data = self._get_patient_form_data()
             
-            submitted = st.form_submit_button("🔄 Submit Referral", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("Create Referral", use_container_width=True)
             if submitted:
                 is_valid, error_message = self._validate_patient_data(patient_data)
                 
@@ -1874,96 +1589,28 @@ class ReferralUI:
                     patient = self.referral_service.create_referral(patient_data, user)
                     
                     if patient:
-                        st.success(f"✅ Referral created successfully!")
-                        st.info(f"**Patient ID:** {patient.patient_id}")
-                        if patient.mews_score is not None:
-                            st.info(f"**MEWS Score:** {patient.mews_score} - {patient.mews_risk_level}")
-                        st.balloons()
+                        st.success(f"Referral created successfully! Patient ID: {patient.patient_id}")
 
     def _get_patient_form_data(self) -> Dict:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("##### 👤 Patient Information")
-            name = st.text_input("Full Name*", placeholder="e.g., John Doe")
+            name = st.text_input("Patient Name*")
             age = st.number_input("Age*", min_value=0, max_value=120, value=30)
             gender = st.selectbox("Gender*", ["Male", "Female", "Other"])
-            condition = st.text_input("Primary Diagnosis*", placeholder="e.g., Acute Chest Pain")
-            referring_physician = st.text_input("Referring Physician*", placeholder="Dr. Smith")
-        
-        with col2:
-            st.markdown("##### 🏥 Hospital Information")
+            condition = st.text_input("Medical Condition*")
+            referring_physician = st.text_input("Referring Physician*")
             referring_hospital = st.selectbox("Referring Hospital*", self._get_hospital_options())
-            receiving_hospital = st.selectbox("Receiving Hospital*", self._get_receiving_hospitals())
-            receiving_physician = st.text_input("Receiving Physician", placeholder="Dr. Jones (Optional)")
-        
-        st.markdown("---")
-        st.markdown("##### 🏥 MEWS Triage Assessment")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            respiratory_rate = st.number_input("Respiratory Rate", min_value=4, max_value=60, value=16)
-            heart_rate = st.number_input("Heart Rate (bpm)*", min_value=20, max_value=220, value=80)
         
         with col2:
-            systolic_bp = st.number_input("Systolic BP (mmHg)*", min_value=50, max_value=250, value=120)
-            temperature = st.number_input("Temperature (°C)", min_value=32.0, max_value=42.0, value=36.6, step=0.1)
+            receiving_hospital = st.selectbox("Receiving Hospital*", self._get_receiving_hospitals())
+            receiving_physician = st.text_input("Receiving Physician")
+            notes = st.text_area("Clinical Notes")
         
-        with col3:
-            oxygen_saturation = st.number_input("Oxygen Saturation (%)", min_value=70, max_value=100, value=98)
-            avpu = st.selectbox("AVPU Score", ["Alert", "Voice", "Pain", "Unresponsive"])
-        
-        # Calculate and display MEWS score
-        if heart_rate and systolic_bp:
-            mews_result = MEWSTriage.calculate_score(
-                respiratory_rate or 16,
-                heart_rate,
-                systolic_bp,
-                temperature or 36.6,
-                oxygen_saturation or 98,
-                avpu or 'Alert'
-            )
-            
-            # Display MEWS results
-            risk_colors = {
-                'Low': '#4CAF50',
-                'Medium': '#FFC107',
-                'High': '#FF9800',
-                'Critical': '#F44336'
-            }
-            
-            st.markdown(f"""
-            <div style="background: {risk_colors.get(mews_result['risk_level'], '#666')}20; 
-                        border: 2px solid {risk_colors.get(mews_result['risk_level'], '#666')}; 
-                        border-radius: 10px; padding: 1rem; margin: 1rem 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>MEWS Score:</strong> <span style="font-size: 1.5rem; font-weight: bold;">{mews_result['total_score']}</span>
-                    </div>
-                    <div>
-                        <span style="background: {risk_colors.get(mews_result['risk_level'], '#666')}; 
-                                   padding: 4px 16px; 
-                                   border-radius: 20px; 
-                                   color: white; 
-                                   font-weight: bold;">
-                            {mews_result['risk_level']}
-                        </span>
-                    </div>
-                </div>
-                <div style="margin-top: 0.5rem; color: #666;">
-                    {mews_result['recommendation']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("##### 📝 Clinical Notes")
-        notes = st.text_area("Clinical Notes", placeholder="Additional clinical information...", height=100)
-        
-        with st.expander("📋 Medical History"):
-            medical_history = st.text_area("Medical History", placeholder="Past medical history...", height=80)
-            current_medications = st.text_area("Current Medications", placeholder="List current medications...", height=80)
-            allergies = st.text_area("Allergies", placeholder="Any known allergies...", height=80)
+        with st.expander("Additional Medical Information"):
+            medical_history = st.text_area("Medical History")
+            current_medications = st.text_area("Current Medications")
+            allergies = st.text_area("Allergies")
         
         # Calculate and display distance and cost estimate
         if referring_hospital and receiving_hospital:
@@ -1972,20 +1619,18 @@ class ReferralUI:
                 cost_service = CostCalculationService(self.db_service)
                 cost_estimate = cost_service.calculate_trip_cost(distance)
                 
-                st.markdown("---")
-                st.markdown("##### 📊 Trip Cost Estimate")
+                st.subheader("📊 Trip Details")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Estimated Distance", f"{distance:.1f} km")
+                    st.metric("Estimated Distance", f"{distance} km")
                 with col2:
                     st.metric("Estimated Fuel Cost", f"KSh {cost_estimate['fuel_cost_ksh']:,.0f}")
                 with col3:
                     st.metric("Total Estimated Cost", f"KSh {cost_estimate['total_cost_ksh']:,.0f}")
         
-        st.markdown("---")
-        st.markdown("##### 🚑 Ambulance Assignment")
+        st.subheader("🚑 Ambulance Assignment")
         ambulance_assignment_type = st.radio(
-            "Select Assignment Method",
+            "Ambulance Assignment",
             ["Auto-assign nearest ambulance", "Select specific ambulance"],
             horizontal=True
         )
@@ -1995,20 +1640,17 @@ class ReferralUI:
         
         if ambulance_assignment_type == "Auto-assign nearest ambulance":
             auto_assign_ambulance = True
-            st.info("🤖 The system will automatically assign the nearest available ambulance with sufficient fuel.")
+            st.info("The system will automatically assign the nearest available ambulance with sufficient fuel.")
         else:
             with self.db_service.get_session() as session:
                 available_ambulances = session.query(Ambulance).filter(Ambulance.status == 'Available').all()
                 if available_ambulances:
-                    ambulance_options = {
-                        f"{amb.ambulance_id} - {amb.driver_name} (Fuel: {amb.fuel_level:.1f}%)": amb.ambulance_id 
-                        for amb in available_ambulances
-                    }
+                    ambulance_options = {f"{amb.ambulance_id} - {amb.driver_name} (Fuel: {amb.fuel_level:.1f}%)": amb.ambulance_id for amb in available_ambulances}
                     ambulance_choice = st.selectbox("Select Ambulance", list(ambulance_options.keys()))
                     if ambulance_choice:
                         assigned_ambulance = ambulance_options[ambulance_choice]
                 else:
-                    st.warning("⚠️ No available ambulances. Please try auto-assignment or wait for an ambulance to become available.")
+                    st.warning("No available ambulances. Please try auto-assignment or wait for an ambulance to become available.")
         
         return {
             'name': name, 'age': age, 'gender': gender, 'condition': condition,
@@ -2017,14 +1659,7 @@ class ReferralUI:
             'notes': notes, 'medical_history': medical_history,
             'current_medications': current_medications, 'allergies': allergies,
             'auto_assign_ambulance': auto_assign_ambulance,
-            'assigned_ambulance': assigned_ambulance,
-            # MEWS fields
-            'respiratory_rate': respiratory_rate,
-            'heart_rate': heart_rate,
-            'systolic_bp': systolic_bp,
-            'temperature': temperature,
-            'oxygen_saturation': oxygen_saturation,
-            'avpu': avpu
+            'assigned_ambulance': assigned_ambulance
         }
 
     def _calculate_distance_between_hospitals(self, referring_hospital: str, receiving_hospital: str) -> Optional[float]:
@@ -2047,9 +1682,7 @@ class ReferralUI:
             'condition': 'Medical condition',
             'referring_hospital': 'Referring hospital',
             'receiving_hospital': 'Receiving hospital',
-            'referring_physician': 'Referring physician',
-            'heart_rate': 'Heart rate',
-            'systolic_bp': 'Systolic blood pressure'
+            'referring_physician': 'Referring physician'
         }
         
         for field, description in required_fields.items():
@@ -2087,7 +1720,7 @@ class ReferralUI:
         return list(HOSPITAL_LOCATIONS.keys())
 
     def _display_active_referrals(self):
-        st.subheader("🔄 Active Referrals")
+        st.subheader("Active Referrals")
         
         with self.db_service.get_session() as session:
             user_hospital = st.session_state.user['hospital']
@@ -2098,19 +1731,18 @@ class ReferralUI:
                 
                 # Show patient actions for staff and admin
                 if st.session_state.user['role'] in ['Admin', 'Hospital Staff']:
-                    st.markdown("---")
-                    st.subheader("⚡ Patient Actions")
+                    st.subheader("Patient Actions")
                     for patient in active_patients:
-                        with st.expander(f"🔄 {patient.name} ({patient.patient_id[:8]}) - {patient.mews_risk_level or 'Unknown Risk'}"):
+                        with st.expander(f"Actions for {patient.name} ({patient.patient_id})"):
                             self._display_patient_actions(patient)
             else:
-                st.info("No active referrals at this time")
+                st.info("No active referrals")
 
     def _display_patient_actions(self, patient):
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button(f"🚑 Assign Ambulance", key=f"assign_{patient.patient_id}", use_container_width=True):
+            if st.button(f"Assign Ambulance", key=f"assign_{patient.patient_id}", use_container_width=True):
                 st.session_state[f'assign_ambulance_{patient.patient_id}'] = True
             
             if st.session_state.get(f'assign_ambulance_{patient.patient_id}'):
@@ -2122,17 +1754,17 @@ class ReferralUI:
                             for amb in available_ambulances
                         ]
                         selected_ambulance = st.selectbox("Select Ambulance", ambulance_options, key=f"amb_select_{patient.patient_id}")
-                        if st.button("✅ Confirm Assignment", key=f"confirm_{patient.patient_id}", use_container_width=True, type="primary"):
+                        if st.button("Confirm Assignment", key=f"confirm_{patient.patient_id}", use_container_width=True):
                             ambulance_id = selected_ambulance.split(" - ")[0]
                             if self.referral_service.assign_ambulance(patient.patient_id, ambulance_id):
-                                st.success("✅ Ambulance assigned successfully!")
+                                st.success("Ambulance assigned successfully!")
                                 st.session_state[f'assign_ambulance_{patient.patient_id}'] = False
                                 st.rerun()
                     else:
-                        st.warning("⚠️ No available ambulances")
+                        st.warning("No available ambulances")
         
         with col2:
-            if st.button(f"📝 Update Status", key=f"status_{patient.patient_id}", use_container_width=True):
+            if st.button("Update Status", key=f"status_{patient.patient_id}", use_container_width=True):
                 st.session_state[f'update_status_{patient.patient_id}'] = True
             
             if st.session_state.get(f'update_status_{patient.patient_id}'):
@@ -2140,13 +1772,13 @@ class ReferralUI:
                     ["Referred", "Ambulance Dispatched", "Patient Picked Up", 
                      "Transporting to Destination", "Arrived at Destination"],
                     key=f"status_select_{patient.patient_id}")
-                if st.button("🔄 Update", key=f"update_{patient.patient_id}", use_container_width=True, type="primary"):
+                if st.button("Update", key=f"update_{patient.patient_id}", use_container_width=True):
                     with self.db_service.get_session() as session:
                         patient_obj = session.query(Patient).filter(Patient.patient_id == patient.patient_id).first()
                         if patient_obj:
                             patient_obj.status = new_status
                             session.commit()
-                            st.success("✅ Status updated!")
+                            st.success("Status updated!")
                             st.session_state[f'update_status_{patient.patient_id}'] = False
                             st.rerun()
         
@@ -2154,35 +1786,12 @@ class ReferralUI:
             if (st.session_state.user['role'] == 'Ambulance Driver' and 
                 patient.assigned_ambulance and 
                 patient.status == 'Ambulance Dispatched'):
-                if st.button("🚑 Mark Patient Picked Up", key=f"pickup_{patient.patient_id}", use_container_width=True, type="primary"):
+                if st.button("Mark Patient Picked Up", key=f"pickup_{patient.patient_id}", use_container_width=True):
                     if self.referral_service.mark_patient_picked_up(patient.patient_id):
                         st.rerun()
-        
-        # Display MEWS info
-        if patient.mews_score is not None:
-            risk_colors = {
-                'Low': '#4CAF50',
-                'Medium': '#FFC107',
-                'High': '#FF9800',
-                'Critical': '#F44336'
-            }
-            st.markdown(f"""
-            <div style="display: flex; gap: 1rem; margin-top: 0.5rem; padding: 0.5rem; background: #f5f5f5; border-radius: 8px;">
-                <div><strong>MEWS Score:</strong> {patient.mews_score}</div>
-                <div><strong>Risk Level:</strong> 
-                    <span style="background: {risk_colors.get(patient.mews_risk_level, '#666')}; 
-                               padding: 2px 12px; 
-                               border-radius: 12px; 
-                               color: white; 
-                               font-size: 0.8rem;">
-                        {patient.mews_risk_level}
-                    </span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
 
     def _display_referral_history(self):
-        st.subheader("📚 Referral History")
+        st.subheader("Referral History")
         
         with self.db_service.get_session() as session:
             user_hospital = st.session_state.user['hospital']
@@ -2191,7 +1800,7 @@ class ReferralUI:
             if all_patients:
                 self._display_patients_table(all_patients)
             else:
-                st.info("No referral history found")
+                st.info("No referral history")
 
     def _get_filtered_patients(self, session, user_hospital: str, active_only: bool = True):
         query = session.query(Patient)
@@ -2218,41 +1827,21 @@ class ReferralUI:
                 if patient.trip_cost_savings:
                     cost_info += f" (Saved: KSh {patient.trip_cost_savings:,.0f})"
             
-            # MEWS badge
-            mews_badge = ""
-            if patient.mews_risk_level:
-                colors = {
-                    'Low': '#4CAF50',
-                    'Medium': '#FFC107',
-                    'High': '#FF9800',
-                    'Critical': '#F44336'
-                }
-                mews_badge = f'<span style="background: {colors.get(patient.mews_risk_level, "#666")}; padding: 2px 12px; border-radius: 12px; color: white; font-size: 0.8rem;">{patient.mews_risk_level}</span>'
-            
             data.append({
                 'Patient ID': patient.patient_id[:8] + '...',
                 'Name': patient.name,
                 'Gender': patient.gender,
-                'Condition': patient.condition[:30] + '...' if len(patient.condition) > 30 else patient.condition,
-                'From': patient.referring_hospital[:25] + '...' if len(patient.referring_hospital) > 25 else patient.referring_hospital,
-                'To': patient.receiving_hospital[:25] + '...' if len(patient.receiving_hospital) > 25 else patient.receiving_hospital,
+                'Condition': patient.condition,
+                'From': patient.referring_hospital,
+                'To': patient.receiving_hospital,
                 'Status': patient.status,
-                'MEWS': mews_badge,
                 'Ambulance': ambulance_info,
                 'Distance': f"{patient.trip_distance or 0:.1f} km",
                 'Cost': cost_info,
-                'Time': patient.referral_time.strftime('%d %b %H:%M')
+                'Time': patient.referral_time.strftime('%Y-%m-%d %H:%M')
             })
         
-        st.dataframe(
-            pd.DataFrame(data),
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                'MEWS': st.column_config.Column('MEWS Risk', width='small'),
-                'Status': st.column_config.Column('Status', width='medium'),
-            }
-        )
+        st.dataframe(pd.DataFrame(data), use_container_width=True)
 
 # Enhanced Cost Management UI
 class CostManagementUI:
@@ -2262,16 +1851,9 @@ class CostManagementUI:
         self.cost_service = CostCalculationService(db_service)
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">💰 Cost Management & Analytics</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Track and optimize operational costs across the referral system
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("💰 Cost Management & Analytics")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Cost Overview", "⛽ Fuel Management", "💵 Savings Analysis", "📈 Budget Planning"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Cost Overview", "Fuel Management", "Savings Analysis", "Budget Planning"])
         
         with tab1:
             self._display_cost_overview()
@@ -2283,11 +1865,12 @@ class CostManagementUI:
             self._display_budget_planning()
 
     def _display_cost_overview(self):
-        st.subheader("📊 Cost Overview")
+        st.subheader("📈 Cost Overview")
         
         kpis = self.analytics.get_kpis()
         cost_data = self.analytics.get_cost_analytics()
         
+        # Only show metrics if there are actual costs
         if cost_data['total_trip_costs'] > 0:
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -2300,9 +1883,7 @@ class CostManagementUI:
                 savings_rate = (kpis['total_cost_savings'] / kpis['total_fuel_cost'] * 100) if kpis['total_fuel_cost'] > 0 else 0
                 st.metric("Savings Rate", f"{savings_rate:.1f}%")
             
-            st.markdown("---")
-            st.subheader("Cost Distribution by Ambulance")
-            
+            st.subheader("Cost Distribution")
             with self.db_service.get_session() as session:
                 ambulances = session.query(Ambulance).all()
                 handovers = session.query(HandoverForm).all()
@@ -2310,11 +1891,12 @@ class CostManagementUI:
                 if ambulances and handovers:
                     cost_distribution = []
                     for ambulance in ambulances:
+                        # Calculate ambulance-specific costs from handovers
                         ambulance_handovers = [h for h in handovers if h.ambulance_id == ambulance.ambulance_id]
                         ambulance_fuel_cost = sum(h.fuel_cost or 0 for h in ambulance_handovers)
                         ambulance_savings = sum(h.total_cost or 0 for h in ambulance_handovers) * 0.15
                         
-                        if ambulance_fuel_cost > 0:
+                        if ambulance_fuel_cost > 0:  # Only show ambulances with costs
                             cost_distribution.append({
                                 'Ambulance': ambulance.ambulance_id,
                                 'Fuel Cost': ambulance_fuel_cost,
@@ -2325,14 +1907,12 @@ class CostManagementUI:
                         df = pd.DataFrame(cost_distribution)
                         fig = px.bar(df, x='Ambulance', y=['Fuel Cost', 'Savings'],
                                     title="Cost Distribution by Ambulance",
-                                    barmode='group',
-                                    color_discrete_map={'Fuel Cost': '#F44336', 'Savings': '#4CAF50'})
-                        fig.update_layout(height=400)
+                                    barmode='group')
                         st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.info("No cost distribution data available yet")
         else:
-            st.info("📊 No cost data available yet. Complete handovers to see cost analytics.")
+            st.info("No cost data available yet. Costs will appear after patient handovers are completed.")
 
     def _display_fuel_management(self):
         st.subheader("⛽ Fuel Management")
@@ -2341,8 +1921,8 @@ class CostManagementUI:
             ambulances = session.query(Ambulance).all()
             handovers = session.query(HandoverForm).all()
         
-        st.markdown("#### Fuel Price Settings")
-        col1, col2 = st.columns([2, 1])
+        st.subheader("Fuel Price Settings")
+        col1, col2 = st.columns(2)
         with col1:
             current_price = st.number_input(
                 "Current Fuel Price (KSh/L)",
@@ -2353,16 +1933,14 @@ class CostManagementUI:
             )
         
         with col2:
-            if st.button("💾 Update Fuel Price", use_container_width=True, type="primary"):
+            if st.button("Update Fuel Price", use_container_width=True):
                 Config.costs.fuel_price_per_liter = current_price
-                st.success("✅ Fuel price updated successfully!")
-                st.rerun()
+                st.success("Fuel price updated successfully!")
         
-        st.markdown("---")
         st.subheader("Fuel Efficiency Analysis")
-        
         efficiency_data = []
         for ambulance in ambulances:
+            # Calculate efficiency from handovers
             ambulance_handovers = [h for h in handovers if h.ambulance_id == ambulance.ambulance_id]
             total_distance = sum(h.distance_covered or 0 for h in ambulance_handovers)
             total_fuel_cost = sum(h.fuel_cost or 0 for h in ambulance_handovers)
@@ -2373,57 +1951,39 @@ class CostManagementUI:
                 
                 efficiency_data.append({
                     'Ambulance': ambulance.ambulance_id,
-                    'Distance (km)': round(total_distance, 1),
-                    'Fuel Used (L)': round(fuel_used_liters, 1),
-                    'Efficiency (km/L)': round(efficiency, 2),
-                    'Cost per km': round(total_fuel_cost / total_distance, 2)
+                    'Distance (km)': total_distance,
+                    'Fuel Used (L)': fuel_used_liters,
+                    'Efficiency (km/L)': efficiency,
+                    'Cost per km': total_fuel_cost / total_distance
                 })
         
         if efficiency_data:
             df = pd.DataFrame(efficiency_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, use_container_width=True)
             
             fig = px.bar(df, x='Ambulance', y='Efficiency (km/L)',
-                        title="Fuel Efficiency by Ambulance",
-                        color='Efficiency (km/L)',
-                        color_continuous_scale='Viridis')
-            fig.update_layout(height=350)
+                        title="Fuel Efficiency by Ambulance")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No fuel efficiency data available yet. Complete handovers to see efficiency data.")
         
-        st.markdown("---")
         st.subheader("Ambulance Fuel Status")
-        
         for ambulance in ambulances:
-            fuel_percentage = ambulance.fuel_level
-            if fuel_percentage > 50:
-                status = "🟢 Good"
-                color = "#4CAF50"
-            elif fuel_percentage > 20:
-                status = "🟡 Low"
-                color = "#FFC107"
-            else:
-                status = "🔴 Critical"
-                color = "#F44336"
+            fuel_status = "🟢 Good" if ambulance.fuel_level > 50 else "🟡 Low" if ambulance.fuel_level > 20 else "🔴 Critical"
             
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+            col1, col2, col3 = st.columns([2, 1, 1])
             with col1:
                 st.write(f"**{ambulance.ambulance_id}** - {ambulance.driver_name}")
             with col2:
-                st.write(f"{status} ({fuel_percentage:.1f}%)")
-                # Fuel bar
-                st.progress(fuel_percentage/100)
+                st.write(f"{fuel_status} ({ambulance.fuel_level:.1f}%)")
             with col3:
-                st.write(f"Distance: {ambulance.total_distance_traveled:.1f} km")
-            with col4:
-                if st.button("⛽ Refuel", key=f"refuel_{ambulance.ambulance_id}", use_container_width=True):
+                if st.button("Refuel", key=f"refuel_{ambulance.ambulance_id}"):
                     with self.db_service.get_session() as session:
                         ambulance_obj = session.query(Ambulance).filter(Ambulance.ambulance_id == ambulance.ambulance_id).first()
                         if ambulance_obj:
                             ambulance_obj.fuel_level = 100.0
                             session.commit()
-                            st.success(f"✅ {ambulance.ambulance_id} refueled to 100%")
+                            st.success(f"{ambulance.ambulance_id} refueled to 100%")
                             st.rerun()
 
     def _display_savings_analysis(self):
@@ -2436,15 +1996,11 @@ class CostManagementUI:
                 x=cost_data['months'],
                 y=cost_data['monthly_savings'],
                 title="Monthly Cost Savings Trend",
-                labels={'x': 'Month', 'y': 'Savings (KSh)'},
-                color_discrete_sequence=['#4CAF50']
+                labels={'x': 'Month', 'y': 'Savings (KSh)'}
             )
-            fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
             
-            st.markdown("---")
             st.subheader("Savings Breakdown")
-            
             with self.db_service.get_session() as session:
                 ambulances = session.query(Ambulance).all()
                 handovers = session.query(HandoverForm).all()
@@ -2455,7 +2011,7 @@ class CostManagementUI:
                     ambulance_savings = sum(h.total_cost or 0 for h in ambulance_handovers) * 0.15
                     ambulance_fuel_cost = sum(h.fuel_cost or 0 for h in ambulance_handovers)
                     
-                    if ambulance_savings > 0:
+                    if ambulance_savings > 0:  # Only show ambulances with savings
                         savings_data.append({
                             'Ambulance': ambulance.ambulance_id,
                             'Savings': ambulance_savings,
@@ -2466,69 +2022,54 @@ class CostManagementUI:
                     df = pd.DataFrame(savings_data)
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.dataframe(df, use_container_width=True, hide_index=True)
+                        st.dataframe(df, use_container_width=True)
                     with col2:
                         fig = px.pie(df, values='Savings', names='Ambulance',
                                     title="Savings Distribution by Ambulance")
-                        fig.update_layout(height=350)
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No savings data available yet")
         else:
-            st.info("💡 No savings data available yet. Savings will appear after patient handovers are completed.")
+            st.info("No savings data available yet. Savings will appear after patient handovers are completed.")
 
     def _display_budget_planning(self):
-        st.subheader("📈 Budget Planning & Forecasting")
+        st.subheader("📊 Budget Planning & Forecasting")
         
         col1, col2 = st.columns(2)
         with col1:
             monthly_budget = st.number_input("Monthly Budget (KSh)", 
                                            value=500000, 
                                            min_value=100000, 
-                                           max_value=5000000,
-                                           step=50000)
+                                           max_value=5000000)
         with col2:
             expected_trips = st.number_input("Expected Monthly Trips", 
                                            value=100, 
                                            min_value=10, 
-                                           max_value=1000,
-                                           step=10)
+                                           max_value=1000)
         
         avg_trip_cost = 1500
         projected_cost = expected_trips * avg_trip_cost
         projected_savings = projected_cost * 0.15
         net_projected_cost = projected_cost - projected_savings
         
-        st.markdown("---")
         st.subheader("Budget Projections")
-        
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Projected Cost", f"KSh {projected_cost:,.0f}")
         with col2:
             st.metric("Projected Savings", f"KSh {projected_savings:,.0f}")
         with col3:
-            budget_delta = monthly_budget - net_projected_cost
-            status = "✅ Within Budget" if budget_delta >= 0 else "⚠️ Over Budget"
+            status = "Within Budget" if net_projected_cost <= monthly_budget else "Over Budget"
             st.metric("Budget Status", status, 
-                     delta=f"KSh {budget_delta:,.0f}",
-                     delta_color="normal" if budget_delta >= 0 else "inverse")
+                     delta=f"KSh {monthly_budget - net_projected_cost:,.0f}")
         
         budget_data = {
-            'Category': ['Projected Cost', 'Projected Savings', 'Net Cost', 'Monthly Budget'],
-            'Amount': [projected_cost, projected_savings, net_projected_cost, monthly_budget]
+            'Category': ['Projected Cost', 'Projected Savings', 'Net Cost'],
+            'Amount': [projected_cost, projected_savings, net_projected_cost]
         }
         df = pd.DataFrame(budget_data)
         fig = px.bar(df, x='Category', y='Amount', 
-                    title="Budget Utilization Projection",
-                    color='Category',
-                    color_discrete_map={
-                        'Projected Cost': '#F44336',
-                        'Projected Savings': '#4CAF50',
-                        'Net Cost': '#FF9800',
-                        'Monthly Budget': '#2196F3'
-                    })
-        fig.update_layout(height=350)
+                    title="Budget Utilization Projection")
         st.plotly_chart(fig, use_container_width=True)
 
 # Enhanced Tracking UI with Real Coordinates and Cost Analysis
@@ -2538,21 +2079,14 @@ class TrackingUI:
         self.cost_service = cost_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">🚑 Ambulance Tracking</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Real-time location tracking with cost analysis
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("🚑 Ambulance Tracking & Cost Management")
         
-        col1, col2 = st.columns([4, 1])
+        col1, col2 = st.columns([3, 1])
         with col2:
-            if st.button("🔄 Refresh", use_container_width=True, type="primary"):
+            if st.button("🔄 Refresh Data", use_container_width=True):
                 st.rerun()
         
-        st.markdown("### 🗺️ Live Fleet Map")
+        st.markdown("### 🗺️ Real-time Ambulance Tracking with Cost Analysis")
         
         # Display map with all ambulances and hospitals
         self._display_comprehensive_map()
@@ -2562,9 +2096,6 @@ class TrackingUI:
             active_transfers = [p for p in patients if p.status in ['Ambulance Dispatched', 'Patient Picked Up', 'Transporting to Destination']]
             
             if active_transfers:
-                st.markdown("---")
-                st.subheader("🔄 Active Transfers")
-                
                 for patient in active_transfers:
                     with st.expander(f"🚑 {patient.name} - {patient.condition}", expanded=True):
                         ambulance = None
@@ -2587,36 +2118,13 @@ class TrackingUI:
                                 potential_savings = estimated_cost['total_cost_ksh'] * 0.15
                                 st.metric("Potential Savings", f"KSh {potential_savings:,.0f}")
                         
-                        # Display MEWS info
-                        if patient.mews_score is not None:
-                            risk_colors = {
-                                'Low': '#4CAF50',
-                                'Medium': '#FFC107',
-                                'High': '#FF9800',
-                                'Critical': '#F44336'
-                            }
-                            st.markdown(f"""
-                            <div style="display: flex; gap: 1rem; padding: 0.5rem; background: #f5f5f5; border-radius: 8px; margin: 0.5rem 0;">
-                                <div><strong>MEWS Score:</strong> {patient.mews_score}</div>
-                                <div><strong>Risk Level:</strong> 
-                                    <span style="background: {risk_colors.get(patient.mews_risk_level, '#666')}; 
-                                               padding: 2px 12px; 
-                                               border-radius: 12px; 
-                                               color: white; 
-                                               font-size: 0.8rem;">
-                                        {patient.mews_risk_level}
-                                    </span>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        
+                        # Display map and tracking info
                         self._display_tracking_info(patient, ambulance)
             
             else:
-                st.info("🚑 No active patient transfers to track")
+                st.info("No active patient transfers to track")
             
-            st.markdown("---")
-            st.markdown("### 🚑 Fleet Cost Analysis")
+            st.markdown("### 🚑 Ambulance Fleet Cost Analysis")
             self._display_ambulance_cost_list(session)
 
     def _display_comprehensive_map(self):
@@ -2630,7 +2138,7 @@ class TrackingUI:
                 'lon': location['lng'],
                 'name': hospital_name,
                 'type': 'hospital',
-                'color': [0, 0, 255],
+                'color': [0, 0, 255],  # Blue for hospitals
                 'size': 100
             })
         
@@ -2639,6 +2147,7 @@ class TrackingUI:
             ambulances = session.query(Ambulance).all()
             for ambulance in ambulances:
                 if ambulance.latitude and ambulance.longitude:
+                    # Red for ambulance in motion, green for available
                     color = [255, 0, 0] if ambulance.status == 'On Transfer' else [0, 255, 0]
                     map_data.append({
                         'lat': ambulance.latitude,
@@ -2653,6 +2162,7 @@ class TrackingUI:
         if map_data:
             df = pd.DataFrame(map_data)
             
+            # Create a pydeck map with better visualization
             layer = pdk.Layer(
                 'ScatterplotLayer',
                 data=df,
@@ -2677,10 +2187,7 @@ class TrackingUI:
                 tooltip={
                     'html': '<b>{name}</b><br>{type} - {status}',
                     'style': {
-                        'color': 'white',
-                        'background': 'rgba(0,0,0,0.7)',
-                        'padding': '8px',
-                        'border-radius': '4px'
+                        'color': 'white'
                     }
                 }
             )
@@ -2697,16 +2204,18 @@ class TrackingUI:
             with col2:
                 st.metric("Driver", ambulance.driver_name)
             with col3:
-                fuel_percentage = ambulance.fuel_level
-                status = "🟢 Good" if fuel_percentage > 50 else "🟡 Low" if fuel_percentage > 20 else "🔴 Critical"
-                st.metric("Fuel Level", f"{fuel_percentage:.1f}%", status)
+                fuel_status = "🟢 Good" if ambulance.fuel_level > 50 else "🟡 Low" if ambulance.fuel_level > 20 else "🔴 Critical"
+                st.metric("Fuel Level", f"{ambulance.fuel_level:.1f}%", fuel_status)
             with col4:
                 st.metric("Status", ambulance.status)
             
-            st.markdown("#### 📍 Current Location")
+            # Enhanced map display for individual patient with real coordinates
+            st.subheader("📍 Current Location")
             if ambulance.latitude and ambulance.longitude:
+                # Create map data with different colors for specific locations
                 map_data = []
                 
+                # Add ambulance location (RED)
                 map_data.append({
                     'lat': ambulance.latitude,
                     'lon': ambulance.longitude,
@@ -2714,6 +2223,7 @@ class TrackingUI:
                     'color': 'red'
                 })
                 
+                # Add referring hospital location (BLUE)
                 if patient.referring_hospital_lat and patient.referring_hospital_lng:
                     map_data.append({
                         'lat': patient.referring_hospital_lat,
@@ -2722,6 +2232,7 @@ class TrackingUI:
                         'color': 'blue'
                     })
                 
+                # Add receiving hospital location (GREEN)
                 if patient.receiving_hospital_lat and patient.receiving_hospital_lng:
                     map_data.append({
                         'lat': patient.receiving_hospital_lat,
@@ -2732,6 +2243,7 @@ class TrackingUI:
                 
                 df_map = pd.DataFrame(map_data)
                 
+                # Use Pydeck for better visualization
                 layer = pdk.Layer(
                     'ScatterplotLayer',
                     data=df_map,
@@ -2754,26 +2266,24 @@ class TrackingUI:
                     tooltip={
                         'html': '<b>{name}</b>',
                         'style': {
-                            'color': 'white',
-                            'background': 'rgba(0,0,0,0.7)',
-                            'padding': '8px',
-                            'border-radius': '4px'
+                            'color': 'white'
                         }
                     }
                 )
                 
                 st.pydeck_chart(r)
             else:
-                st.info("📍 Location data not available")
+                st.info("Location data not available")
 
     def _display_ambulance_cost_list(self, session):
         ambulances = session.query(Ambulance).all()
         handovers = session.query(HandoverForm).all()
         
         for ambulance in ambulances:
-            status_color = "🟢" if ambulance.status == 'Available' else "🔴" if ambulance.status == 'On Transfer' else "🟡"
+            status_color = "🟢" if ambulance.status == 'Available' else "🔴"
             fuel_indicator = "🟢" if ambulance.fuel_level > 50 else "🟡" if ambulance.fuel_level > 20 else "🔴"
             
+            # Calculate costs from handovers
             ambulance_handovers = [h for h in handovers if h.ambulance_id == ambulance.ambulance_id]
             total_fuel_cost = sum(h.fuel_cost or 0 for h in ambulance_handovers)
             total_savings = total_fuel_cost * 0.15
@@ -2783,7 +2293,7 @@ class TrackingUI:
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write(f"**Status:** {ambulance.status}")
-                    st.write(f"**Location:** {ambulance.current_location or 'Unknown'}")
+                    st.write(f"**Location:** {ambulance.current_location}")
                     st.write(f"**Contact:** {ambulance.driver_contact}")
                     st.write(f"**Total Distance:** {total_distance:,.1f} km")
                 
@@ -2798,7 +2308,6 @@ class TrackingUI:
                     if patient:
                         st.write(f"**Current Patient:** {patient.name}")
                         st.write(f"**Destination:** {patient.receiving_hospital}")
-                        st.write(f"**MEWS Score:** {patient.mews_score or 'Not assessed'} - {patient.mews_risk_level or 'Unknown'}")
                         
                         if patient.trip_distance:
                             cost_info = self.cost_service.calculate_trip_cost(
@@ -2814,16 +2323,9 @@ class CommunicationUI:
         self.notification_service = notification_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">💬 Communication Center</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Secure messaging and notification management
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("💬 Communication Center")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["📨 Messages", "✉️ Send Message", "📋 Templates", "📊 Notifications"])
+        tab1, tab2, tab3, tab4 = st.tabs(["All Messages", "Send Message", "Message Templates", "Notification Log"])
         
         with tab1:
             self._display_all_messages()
@@ -2835,17 +2337,17 @@ class CommunicationUI:
             self._notification_log()
 
     def _display_all_messages(self):
-        st.subheader("📨 All Messages")
+        st.subheader("📨 All Messages & Notifications")
         
         col1, col2, col3 = st.columns(3)
         with col1:
             filter_type = st.selectbox("Filter by Type", 
-                ["All Messages", "Automatic", "Manual", "Driver"])
+                ["All Messages", "Automatic Notifications", "Manual Messages", "Driver Messages"])
         with col2:
-            filter_date = st.selectbox("Filter by Date", 
-                ["All Time", "Today", "Last 7 Days", "Last 30 Days"])
+            filter_status = st.selectbox("Filter by Status", 
+                ["All Status", "Unread", "Read"])
         with col3:
-            if st.button("🔄 Refresh", use_container_width=True):
+            if st.button("🔄 Refresh Messages", use_container_width=True):
                 st.rerun()
         
         with self.db_service.get_session() as session:
@@ -2855,26 +2357,15 @@ class CommunicationUI:
                 st.info("No messages found")
                 return
             
-            # Apply filters
             filtered_comms = all_communications
-            if filter_type == "Automatic":
+            if filter_type == "Automatic Notifications":
                 filtered_comms = [c for c in all_communications if c.sender == 'System']
-            elif filter_type == "Manual":
+            elif filter_type == "Manual Messages":
                 filtered_comms = [c for c in all_communications if c.sender != 'System' and c.sender != 'Driver']
-            elif filter_type == "Driver":
+            elif filter_type == "Driver Messages":
                 filtered_comms = [c for c in all_communications if c.sender == 'Driver']
             
-            if filter_date == "Today":
-                today = datetime.now().date()
-                filtered_comms = [c for c in filtered_comms if c.timestamp.date() == today]
-            elif filter_date == "Last 7 Days":
-                cutoff = datetime.now() - timedelta(days=7)
-                filtered_comms = [c for c in filtered_comms if c.timestamp >= cutoff]
-            elif filter_date == "Last 30 Days":
-                cutoff = datetime.now() - timedelta(days=30)
-                filtered_comms = [c for c in filtered_comms if c.timestamp >= cutoff]
-            
-            for comm in filtered_comms[:20]:  # Limit to 20 most recent
+            for comm in filtered_comms:
                 if comm.sender == 'System':
                     icon = "🤖"
                     bg_color = "#e8f4fd"
@@ -2888,34 +2379,37 @@ class CommunicationUI:
                     bg_color = "#fff3e0"
                     border_color = "#ff9800"
                 
-                st.markdown(f"""
-                <div style="
-                    background-color: {bg_color};
-                    border-left: 4px solid {border_color};
-                    border-radius: 4px;
-                    padding: 12px 16px;
-                    margin: 8px 0;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>{icon} {comm.sender}</strong> → <strong>{comm.receiver}</strong>
-                            <span style="font-size: 0.8rem; color: #888; margin-left: 12px;">
-                                {comm.timestamp.strftime('%d %b %H:%M')}
-                            </span>
+                with st.container():
+                    st.markdown(f"""
+                    <div style="
+                        background-color: {bg_color};
+                        border: 2px solid {border_color};
+                        border-radius: 10px;
+                        padding: 15px;
+                        margin: 10px 0;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>{icon} {comm.sender}</strong> → <strong>{comm.receiver}</strong>
+                            </div>
+                            <div style="font-size: 0.8em; color: #666;">
+                                {comm.timestamp.strftime('%Y-%m-%d %H:%M')}
+                            </div>
                         </div>
-                        <div style="font-size: 0.8rem; color: #888;">
-                            {comm.message_type or 'General'}
+                        <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px;">
+                            {comm.message}
+                        </div>
+                        <div style="font-size: 0.8em; color: #888;">
+                            Patient: {comm.patient_id or 'N/A'} | 
+                            Ambulance: {comm.ambulance_id or 'N/A'} | 
+                            Type: {comm.message_type or 'General'}
                         </div>
                     </div>
-                    <div style="margin: 8px 0 4px 0; color: #333;">
-                        {comm.message}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
     def _send_custom_message(self):
         st.subheader("✉️ Send Custom Message")
-        
         with st.form("custom_message_form"):
             with self.db_service.get_session() as session:
                 patients = session.query(Patient).all()
@@ -2923,34 +2417,38 @@ class CommunicationUI:
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    patient_options = ["None"] + [f"{p.patient_id[:8]} - {p.name}" for p in patients]
+                    patient_options = ["Select Patient"] + [f"{p.patient_id} - {p.name}" for p in patients]
                     selected_patient = st.selectbox("Related Patient", patient_options)
                     
                     sender = st.selectbox("Sender", 
                         ["System", st.session_state.user.get('name', st.session_state.user['role'])])
                     
                 with col2:
-                    ambulance_options = ["None"] + [f"{a.ambulance_id} - {a.driver_name}" for a in ambulances]
+                    ambulance_options = ["Select Ambulance"] + [f"{a.ambulance_id} - {a.driver_name}" for a in ambulances]
                     selected_ambulance = st.selectbox("Related Ambulance", ambulance_options)
                     
-                    receiver_options = ["Select Receiver"] + [a.driver_name for a in ambulances] + list(HOSPITAL_LOCATIONS.keys())[:10]
-                    receiver = st.selectbox("Receiver*", receiver_options)
+                    receiver_options = ["Select Receiver"] + [a.driver_name for a in ambulances] + list(HOSPITAL_LOCATIONS.keys())
+                    receiver = st.selectbox("Receiver", receiver_options)
                 
                 message_type = st.selectbox("Message Type", 
                     ["General", "Urgent", "Update", "Emergency", "Instruction"])
                 
-                message = st.text_area("Message*", height=150, 
+                message = st.text_area("Message", height=150, 
                     placeholder="Type your message here...")
                 
-                priority = st.selectbox("Priority", ["Normal", "High", "Urgent"])
+                col1, col2 = st.columns(2)
+                with col1:
+                    priority = st.selectbox("Priority", ["Normal", "High", "Urgent"])
+                with col2:
+                    require_confirmation = st.checkbox("Require Confirmation", value=False)
                 
-                submitted = st.form_submit_button("📤 Send Message", use_container_width=True, type="primary")
+                submitted = st.form_submit_button("Send Message", use_container_width=True)
                 if submitted:
                     if not message or receiver == "Select Receiver":
                         st.error("Please fill in all required fields")
                     else:
-                        patient_id = selected_patient.split(" - ")[0] if selected_patient != "None" else None
-                        ambulance_id = selected_ambulance.split(" - ")[0] if selected_ambulance != "None" else None
+                        patient_id = selected_patient.split(" - ")[0] if selected_patient != "Select Patient" else None
+                        ambulance_id = selected_ambulance.split(" - ")[0] if selected_ambulance != "Select Ambulance" else None
                         
                         comm_data = {
                             'patient_id': patient_id,
@@ -2965,6 +2463,9 @@ class CommunicationUI:
                         session.commit()
                         
                         st.success(f"✅ Message sent to {receiver}")
+                        
+                        if require_confirmation:
+                            st.info("📬 Confirmation request sent with the message")
 
     def _message_templates(self):
         st.subheader("📋 Message Templates")
@@ -2981,7 +2482,7 @@ class CommunicationUI:
                 "Arrival Imminent": "🎯 ARRIVAL IMMINENT: Ambulance arriving in 5 minutes. Please meet at emergency entrance."
             },
             "Medical Updates": {
-                "Vitals Update": "📊 VITALS UPDATE: BP {bp}, HR {hr}, SpO2 {spo2}. MEWS Score: {mews}.",
+                "Vitals Update": "📊 VITALS UPDATE: BP {bp}, HR {hr}, SpO2 {spo2}. Patient condition {condition}.",
                 "Medication Administered": "💊 MEDICATION: Administered {medication}. Patient response: {response}.",
                 "Condition Change": "🔄 CONDITION CHANGE: Patient condition has {change}. New symptoms: {symptoms}."
             }
@@ -2995,27 +2496,24 @@ class CommunicationUI:
             for template_name, template_content in template_categories[selected_category].items():
                 col1, col2, col3 = st.columns([3, 1, 1])
                 with col1:
-                    st.text_area(f"{template_name}", template_content, height=80, key=f"template_{template_name}")
+                    st.text_area(f"{template_name}", template_content, height=100, key=f"template_{template_name}")
                 with col2:
-                    if st.button("📋 Use", key=f"use_{template_name}", use_container_width=True):
+                    if st.button("Use", key=f"use_{template_name}", use_container_width=True):
                         st.session_state.selected_template = template_content
-                        st.success("✅ Template copied!")
+                        st.success("Template copied to message composer!")
                 with col3:
-                    if st.button("✏️ Edit", key=f"edit_{template_name}", use_container_width=True):
+                    if st.button("Edit", key=f"edit_{template_name}", use_container_width=True):
                         st.session_state.editing_template = template_name
         
-        st.markdown("---")
         st.subheader("Create Custom Template")
-        
         with st.form("custom_template_form"):
-            template_name = st.text_input("Template Name", placeholder="e.g., MEWS Update Template")
-            template_content = st.text_area("Template Content", height=100, 
-                placeholder="Write your template with placeholders like {name}, {mews}, {condition}...")
+            template_name = st.text_input("Template Name")
+            template_content = st.text_area("Template Content", height=100)
             category = st.selectbox("Category", list(template_categories.keys()) + ["Custom"])
             
-            if st.form_submit_button("💾 Save Template", use_container_width=True, type="primary"):
+            if st.form_submit_button("Save Template", use_container_width=True):
                 if template_name and template_content:
-                    st.success(f"✅ Template '{template_name}' saved successfully!")
+                    st.success(f"Template '{template_name}' saved successfully!")
                 else:
                     st.error("Please provide both template name and content")
 
@@ -3041,35 +2539,29 @@ class CommunicationUI:
             with col1:
                 st.metric("Total Messages", total_messages)
             with col2:
-                st.metric("Automatic", automatic_messages)
+                st.metric("Automatic Notifications", automatic_messages)
             with col3:
                 st.metric("Driver Messages", driver_messages)
             with col4:
-                st.metric("Today", today_messages)
+                st.metric("Today's Messages", today_messages)
             
-            st.markdown("---")
             st.subheader("Message Type Distribution")
-            
             message_types = {}
             for comm in communications:
-                msg_type = comm.message_type or 'Unknown'
+                msg_type = comm.message_type or 'unknown'
                 message_types[msg_type] = message_types.get(msg_type, 0) + 1
             
             if message_types:
                 fig = px.pie(values=list(message_types.values()), names=list(message_types.keys()),
-                            title="Message Types Distribution",
-                            color_discrete_sequence=px.colors.qualitative.Set3)
-                fig.update_layout(height=350)
+                            title="Message Types Distribution")
                 st.plotly_chart(fig, use_container_width=True)
             
-            st.markdown("---")
-            st.subheader("Recent Activity")
-            
+            st.subheader("Recent Notification Activity")
             recent_comms = sorted(communications, key=lambda x: x.timestamp, reverse=True)[:10]
             
             for comm in recent_comms:
                 status_color = "🟢" if comm.sender == 'System' else "🔵" if comm.sender == 'Driver' else "🟡"
-                st.write(f"{status_color} **{comm.timestamp.strftime('%H:%M')}** - {comm.sender} → {comm.receiver}: {comm.message_type or 'General'}")
+                st.write(f"{status_color} **{comm.timestamp.strftime('%H:%M')}** - {comm.sender} → {comm.receiver}: {comm.message_type}")
 
 # Enhanced Driver UI
 class DriverUI:
@@ -3079,39 +2571,25 @@ class DriverUI:
         self.location_simulator = LocationSimulator(db_service)
     
     def display_driver_dashboard(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">🚑 Ambulance Driver Dashboard</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Manage your missions and communicate with hospitals
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        st.header("🚑 Ambulance Driver Dashboard")
         driver_name = st.session_state.user.get('name', st.session_state.user['role'])
         
         with self.db_service.get_session() as session:
             ambulance = session.query(Ambulance).filter(Ambulance.driver_name == driver_name).first()
             
             if not ambulance:
-                st.error("🚫 No ambulance assigned to you. Please contact your administrator.")
+                st.error("No ambulance assigned to you")
                 return
             
-            # Driver Status Cards
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Ambulance ID", ambulance.ambulance_id)
             with col2:
                 st.metric("Status", ambulance.status)
             with col3:
-                fuel_status = "🟢" if ambulance.fuel_level > 50 else "🟡" if ambulance.fuel_level > 20 else "🔴"
-                st.metric("Fuel Level", f"{ambulance.fuel_level:.1f}%", fuel_status)
-            with col4:
-                st.metric("Location", ambulance.current_location or "Unknown")
+                st.metric("Location", ambulance.current_location)
             
-            st.markdown("---")
             st.subheader("📨 Recent Notifications")
-            
             driver_notifications = session.query(Communication).filter(
                 Communication.receiver == driver_name
             ).order_by(Communication.timestamp.desc()).limit(5).all()
@@ -3124,19 +2602,15 @@ class DriverUI:
                             patient = session.query(Patient).filter(Patient.patient_id == notification.patient_id).first()
                             if patient:
                                 st.write(f"**Patient:** {patient.name} - {patient.condition}")
-                                if patient.mews_score is not None:
-                                    st.write(f"**MEWS Score:** {patient.mews_score} - {patient.mews_risk_level}")
                             
                         if notification.message_type == 'auto_driver_assignment' and ambulance.status == 'Available':
-                            if st.button("✅ Accept Assignment", key=f"accept_{notification.id}", use_container_width=True, type="primary"):
+                            if st.button("Accept Assignment", key=f"accept_{notification.id}", use_container_width=True):
                                 ambulance.status = 'On Transfer'
                                 session.commit()
-                                st.success("✅ Assignment accepted! Proceed to patient location.")
+                                st.success("Assignment accepted! Proceed to patient location.")
                                 st.rerun()
             else:
                 st.info("No recent notifications")
-            
-            st.markdown("---")
             
             if ambulance.current_patient and ambulance.status == 'On Transfer':
                 patient = session.query(Patient).filter(Patient.patient_id == ambulance.current_patient).first()
@@ -3144,36 +2618,26 @@ class DriverUI:
                     self._display_current_mission(ambulance, patient, session)
             
             elif ambulance.status == 'Available':
-                st.info("🚑 Awaiting assignment...")
-                
+                st.info("Awaiting assignment...")
                 available_patients = session.query(Patient).filter(
                     Patient.status == 'Referred',
                     Patient.assigned_ambulance.is_(None)
                 ).all()
                 
                 if available_patients:
-                    st.subheader("📋 Available Missions")
+                    st.subheader("Available Missions")
                     for patient in available_patients:
-                        with st.expander(f"📍 {patient.name} - {patient.condition}"):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.write(f"**From:** {patient.referring_hospital}")
-                                st.write(f"**To:** {patient.receiving_hospital}")
-                                st.write(f"**Physician:** {patient.referring_physician}")
-                            with col2:
-                                if patient.mews_score is not None:
-                                    st.write(f"**MEWS Score:** {patient.mews_score}")
-                                    st.write(f"**Risk Level:** {patient.mews_risk_level}")
-                                if patient.trip_distance:
-                                    st.write(f"**Distance:** {patient.trip_distance:.1f} km")
-                            
-                            if st.button("✅ Accept Mission", key=f"accept_{patient.patient_id}", use_container_width=True, type="primary"):
+                        with st.expander(f"Mission: {patient.name} - {patient.condition}"):
+                            st.write(f"**From:** {patient.referring_hospital}")
+                            st.write(f"**To:** {patient.receiving_hospital}")
+                            if st.button("Accept Mission", key=f"accept_{patient.patient_id}", use_container_width=True):
                                 ambulance.current_patient = patient.patient_id
                                 ambulance.status = 'On Transfer'
                                 patient.assigned_ambulance = ambulance.ambulance_id
                                 patient.status = 'Ambulance Dispatched'
                                 session.commit()
                                 
+                                # Start simulation for demo
                                 if patient.referring_hospital_lat and patient.receiving_hospital_lat:
                                     thread = threading.Thread(
                                         target=self.location_simulator.start_simulation,
@@ -3189,108 +2653,134 @@ class DriverUI:
                                     thread.daemon = True
                                     thread.start()
                                 
-                                st.success(f"✅ Mission accepted! Assigned to patient {patient.name}")
+                                st.success(f"Mission accepted! Assigned to patient {patient.name}")
                                 st.rerun()
             
-            st.markdown("---")
-            st.subheader("⚡ Quick Status Updates")
+            st.subheader("Quick Status Updates")
             self._quick_actions(ambulance, session)
 
     def _display_current_mission(self, ambulance, patient, session):
-        st.subheader("🎯 Current Mission")
-        
+        st.subheader("Current Mission")
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("##### Patient Information")
-            st.write(f"**Name:** {patient.name}")
+            st.write(f"**Patient:** {patient.name}")
             st.write(f"**Gender:** {patient.gender}")
             st.write(f"**Condition:** {patient.condition}")
             st.write(f"**From:** {patient.referring_hospital}")
             st.write(f"**To:** {patient.receiving_hospital}")
             st.write(f"**Status:** {patient.status}")
-            if patient.mews_score is not None:
-                risk_colors = {
-                    'Low': '#4CAF50',
-                    'Medium': '#FFC107',
-                    'High': '#FF9800',
-                    'Critical': '#F44336'
-                }
-                st.markdown(f"""
-                <div style="display: flex; gap: 1rem; padding: 0.5rem; background: #f5f5f5; border-radius: 8px; margin-top: 0.5rem;">
-                    <div><strong>MEWS Score:</strong> {patient.mews_score}</div>
-                    <div><strong>Risk Level:</strong> 
-                        <span style="background: {risk_colors.get(patient.mews_risk_level, '#666')}; 
-                                   padding: 2px 12px; 
-                                   border-radius: 12px; 
-                                   color: white; 
-                                   font-size: 0.8rem;">
-                            {patient.mews_risk_level}
-                        </span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
         
         with col2:
-            st.markdown("##### 📍 Location Tracking")
+            st.subheader("📍 Real-time Location Sharing")
             
             if ambulance.latitude and ambulance.longitude:
-                map_data = [
-                    {'lat': ambulance.latitude, 'lon': ambulance.longitude, 'name': f'Ambulance: {ambulance.ambulance_id}', 'color': 'red'}
-                ]
+                # Create enhanced map with real coordinates
+                map_data = []
+                
+                # Add ambulance location (RED)
+                map_data.append({
+                    'lat': ambulance.latitude,
+                    'lon': ambulance.longitude,
+                    'name': f'Ambulance: {ambulance.ambulance_id}',
+                    'color': 'red'
+                })
+                
+                # Add referring hospital location (BLUE)
                 if patient.referring_hospital_lat and patient.referring_hospital_lng:
-                    map_data.append({'lat': patient.referring_hospital_lat, 'lon': patient.referring_hospital_lng, 'name': f'Pickup: {patient.referring_hospital}', 'color': 'blue'})
+                    map_data.append({
+                        'lat': patient.referring_hospital_lat,
+                        'lon': patient.referring_hospital_lng,
+                        'name': f'Pickup: {patient.referring_hospital}',
+                        'color': 'blue'
+                    })
+                
+                # Add receiving hospital location (GREEN)
                 if patient.receiving_hospital_lat and patient.receiving_hospital_lng:
-                    map_data.append({'lat': patient.receiving_hospital_lat, 'lon': patient.receiving_hospital_lng, 'name': f'Destination: {patient.receiving_hospital}', 'color': 'green'})
+                    map_data.append({
+                        'lat': patient.receiving_hospital_lat,
+                        'lon': patient.receiving_hospital_lng,
+                        'name': f'Destination: {patient.receiving_hospital}',
+                        'color': 'green'
+                    })
                 
                 df_map = pd.DataFrame(map_data)
-                layer = pdk.Layer('ScatterplotLayer', data=df_map, get_position='[lon, lat]', get_color='color', get_radius=200, pickable=True)
-                view_state = pdk.ViewState(latitude=ambulance.latitude, longitude=ambulance.longitude, zoom=12, pitch=0)
-                r = pdk.Deck(layers=[layer], initial_view_state=view_state)
+                
+                # Use Pydeck for better visualization
+                layer = pdk.Layer(
+                    'ScatterplotLayer',
+                    data=df_map,
+                    get_position='[lon, lat]',
+                    get_color='color',
+                    get_radius=200,
+                    pickable=True
+                )
+                
+                view_state = pdk.ViewState(
+                    latitude=ambulance.latitude,
+                    longitude=ambulance.longitude,
+                    zoom=12,
+                    pitch=0
+                )
+                
+                r = pdk.Deck(
+                    layers=[layer],
+                    initial_view_state=view_state,
+                    tooltip={
+                        'html': '<b>{name}</b>',
+                        'style': {
+                            'color': 'white'
+                        }
+                    }
+                )
+                
                 st.pydeck_chart(r)
             
             st.subheader("📍 Update Location")
             with st.form("location_update_form"):
-                new_lat = st.number_input("Latitude", value=ambulance.latitude or -0.0916, format="%.6f")
-                new_lng = st.number_input("Longitude", value=ambulance.longitude or 34.7680, format="%.6f")
+                new_lat = st.number_input("Latitude", value=ambulance.latitude or -0.0916)
+                new_lng = st.number_input("Longitude", value=ambulance.longitude or 34.7680)
                 location_name = st.text_input("Location Name", value=ambulance.current_location or "En route")
                 
-                if st.form_submit_button("📌 Update Location", use_container_width=True, type="primary"):
+                if st.form_submit_button("Update Location", use_container_width=True):
                     ambulance_service = AmbulanceService(self.db_service)
                     if ambulance_service.update_ambulance_location(
                         ambulance.ambulance_id, new_lat, new_lng, location_name, patient.patient_id
                     ):
-                        st.success("✅ Location updated! Hospitals can now see your current position.")
+                        st.success("Location updated! Hospitals can now see your current position.")
         
-        st.markdown("---")
-        st.subheader("💬 Communication")
+        st.subheader("💬 Real-time Communication")
         self._display_communication_panel(patient, ambulance, session)
         
-        st.markdown("---")
-        st.subheader("⚡ Quick Actions")
+        st.subheader("Quick Actions")
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("📝 Update Vitals", use_container_width=True):
                 self._show_vitals_form(patient, session)
         with col2:
+            if st.button("📍 Update Location", use_container_width=True):
+                self._update_location_form(ambulance)
+        with col3:
             if st.button("🆘 Emergency", use_container_width=True, type="secondary"):
                 self._send_emergency_alert(ambulance, patient, session)
-        with col3:
-            if st.button("✅ Mark Patient Delivered", use_container_width=True, type="primary"):
-                referral_service = ReferralService(self.db_service, self.notification_service)
-                if referral_service.complete_mission(ambulance.ambulance_id, patient.patient_id):
-                    st.rerun()
+        
+        st.subheader("Mission Completion")
+        if st.button("✅ Mark Patient Delivered", use_container_width=True, type="primary"):
+            referral_service = ReferralService(self.db_service, self.notification_service)
+            if referral_service.complete_mission(ambulance.ambulance_id, patient.patient_id):
+                st.rerun()
 
     def _display_communication_panel(self, patient, ambulance, session):
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.markdown("##### Chat with Hospitals")
+            st.subheader("Chat with Hospitals")
             
             communications = session.query(Communication).filter(
                 Communication.patient_id == patient.patient_id
             ).order_by(Communication.timestamp.desc()).limit(5).all()
             
             if communications:
+                st.write("**Recent Messages:**")
                 for comm in communications:
                     timestamp = comm.timestamp.strftime('%H:%M')
                     if comm.sender == 'Driver':
@@ -3304,7 +2794,7 @@ class DriverUI:
                 message = st.text_area("Type your message", placeholder="Update on patient condition, ETA, or any issues...")
                 recipient = st.selectbox("Send to", 
                     [patient.referring_hospital, patient.receiving_hospital, "Both Hospitals"])
-                if st.form_submit_button("📤 Send Message", use_container_width=True, type="primary"):
+                if st.form_submit_button("Send Message", use_container_width=True):
                     if message:
                         if recipient == "Both Hospitals":
                             hospitals = [patient.referring_hospital, patient.receiving_hospital]
@@ -3324,13 +2814,13 @@ class DriverUI:
                             session.add(communication)
                         
                         session.commit()
-                        st.success("✅ Message sent!")
+                        st.success("Message sent!")
                         st.rerun()
                     else:
                         st.error("Please enter a message")
         
         with col2:
-            st.markdown("##### Quick Updates")
+            st.subheader("Quick Updates")
             
             quick_messages = {
                 "ETA 10 mins": "Estimated arrival in 10 minutes",
@@ -3354,29 +2844,17 @@ class DriverUI:
                         communication = Communication(**comm_data)
                         session.add(communication)
                     session.commit()
-                    st.success("✅ Quick update sent!")
+                    st.success("Quick update sent!")
 
     def _show_vitals_form(self, patient, session):
         with st.form("vitals_form"):
-            st.markdown("##### Update Patient Vitals")
-            col1, col2 = st.columns(2)
-            with col1:
-                bp = st.text_input("Blood Pressure", value="120/80")
-                heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=200, value=72)
-            with col2:
-                spo2 = st.number_input("Oxygen Saturation (%)", min_value=0, max_value=100, value=98)
-                respiratory_rate = st.number_input("Respiratory Rate", min_value=0, max_value=60, value=16)
-            
+            st.subheader("Update Patient Vitals")
+            bp = st.text_input("Blood Pressure", value="120/80")
+            heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=200, value=72)
+            spo2 = st.number_input("Oxygen Saturation (%)", min_value=0, max_value=100, value=98)
+            respiratory_rate = st.number_input("Respiratory Rate", min_value=0, max_value=60, value=16)
             notes = st.text_area("Observations")
-            
-            if st.form_submit_button("💾 Update Vitals", use_container_width=True, type="primary"):
-                # Update MEWS score
-                mews_result = MEWSTriage.calculate_score(
-                    respiratory_rate, heart_rate, 
-                    int(bp.split('/')[0]) if '/' in bp else 120,
-                    36.6, spo2, 'Alert'
-                )
-                
+            if st.form_submit_button("Update Vitals", use_container_width=True):
                 patient.vital_signs = {
                     'blood_pressure': bp, 
                     'heart_rate': heart_rate, 
@@ -3385,8 +2863,6 @@ class DriverUI:
                     'notes': notes, 
                     'timestamp': datetime.utcnow().isoformat()
                 }
-                patient.mews_score = mews_result['total_score']
-                patient.mews_risk_level = mews_result['risk_level']
                 session.commit()
                 
                 for hospital in [patient.referring_hospital, patient.receiving_hospital]:
@@ -3394,19 +2870,31 @@ class DriverUI:
                         'patient_id': patient.patient_id,
                         'sender': 'Driver',
                         'receiver': hospital,
-                        'message': f"Vitals updated: BP {bp}, HR {heart_rate}bpm, SpO2 {spo2}%. MEWS: {mews_result['total_score']} - {mews_result['risk_level']}",
+                        'message': f"Vitals updated: BP {bp}, HR {heart_rate}bpm, SpO2 {spo2}%",
                         'message_type': 'vitals_update'
                     }
                     communication = Communication(**comm_data)
                     session.add(communication)
                 
                 session.commit()
-                st.success("✅ Vitals updated! MEWS score recalculated.")
-                st.rerun()
+                st.success("Vitals updated and notified hospitals!")
+
+    def _update_location_form(self, ambulance):
+        with st.form("location_form"):
+            st.subheader("Update Current Location")
+            location_name = st.text_input("Location Name", value=ambulance.current_location)
+            latitude = st.number_input("Latitude", value=ambulance.latitude or -0.0916)
+            longitude = st.number_input("Longitude", value=ambulance.longitude or 34.7680)
+            if st.form_submit_button("Update Location", use_container_width=True):
+                ambulance_service = AmbulanceService(self.db_service)
+                if ambulance_service.update_ambulance_location(
+                    ambulance.ambulance_id, latitude, longitude, location_name, ambulance.current_patient
+                ):
+                    st.success("Location updated! Hospitals can now see your current position.")
 
     def _send_emergency_alert(self, ambulance, patient, session):
         st.error("🚨 EMERGENCY ALERT SENT!")
-        emergency_message = f"🚨 EMERGENCY: Ambulance {ambulance.ambulance_id} requires immediate assistance! Patient: {patient.name}, Condition: {patient.condition}"
+        emergency_message = f"EMERGENCY: Ambulance {ambulance.ambulance_id} requires immediate assistance!"
         
         recipients = [patient.referring_hospital, patient.receiving_hospital, "Control Center"]
         for recipient in recipients:
@@ -3430,19 +2918,19 @@ class DriverUI:
                 ambulance.status = 'Available'
                 ambulance.current_patient = None
                 session.commit()
-                st.success("✅ Status updated to Available")
+                st.success("Status updated to Available")
                 st.rerun()
         with col2:
-            if st.button("⛑️ On Break", use_container_width=True):
+            if st.button("⛑️ Mark On Break", use_container_width=True):
                 ambulance.status = 'On Break'
                 session.commit()
-                st.success("✅ Status updated to On Break")
+                st.success("Status updated to On Break")
                 st.rerun()
         with col3:
             if st.button("🔧 Maintenance", use_container_width=True):
                 ambulance.status = 'Maintenance'
                 session.commit()
-                st.success("✅ Status updated to Maintenance")
+                st.success("Status updated to Maintenance")
                 st.rerun()
 
 # Enhanced Handover UI with PDF Generation
@@ -3451,16 +2939,9 @@ class HandoverUI:
         self.db_service = db_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">📄 Patient Handover Management</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Complete patient handover with MEWS score and cost tracking
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("📄 Patient Handover Management")
         
-        tab1, tab2, tab3 = st.tabs(["📝 Create Handover", "📚 Handover History", "📊 Reports"])
+        tab1, tab2, tab3 = st.tabs(["Create Handover Form", "Handover History", "Download Reports"])
         
         with tab1:
             self._create_handover_form()
@@ -3470,7 +2951,7 @@ class HandoverUI:
             self._download_reports()
 
     def _create_handover_form(self):
-        st.subheader("📝 Create Handover Form")
+        st.subheader("Create Handover Form")
         
         with self.db_service.get_session() as session:
             user_hospital = st.session_state.user['hospital']
@@ -3484,72 +2965,58 @@ class HandoverUI:
                 ).all()
                 
             if not eligible_patients:
-                st.info("📋 No patients eligible for handover (must have status 'Arrived at Destination')")
+                st.info("No patients eligible for handover (must have status 'Arrived at Destination')")
                 return
             
-            patient_options = {f"{p.patient_id[:8]} - {p.name}": p for p in eligible_patients}
+            patient_options = {f"{p.patient_id} - {p.name}": p for p in eligible_patients}
             selected_patient_key = st.selectbox("Select Patient", list(patient_options.keys()))
             selected_patient = patient_options[selected_patient_key]
             
             with st.form("handover_form", clear_on_submit=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write(f"**Patient:** {selected_patient.name}")
-                    st.write(f"**Gender:** {selected_patient.gender}")
-                    st.write(f"**Condition:** {selected_patient.condition}")
-                    st.write(f"**From:** {selected_patient.referring_hospital}")
-                with col2:
-                    st.write(f"**To:** {selected_patient.receiving_hospital}")
-                    st.write(f"**Referring Physician:** {selected_patient.referring_physician}")
-                    if selected_patient.mews_score is not None:
-                        st.write(f"**MEWS Score:** {selected_patient.mews_score} - {selected_patient.mews_risk_level}")
+                st.write(f"**Patient:** {selected_patient.name}")
+                st.write(f"**Gender:** {selected_patient.gender}")
+                st.write(f"**Condition:** {selected_patient.condition}")
+                st.write(f"**From:** {selected_patient.referring_hospital}")
+                st.write(f"**To:** {selected_patient.receiving_hospital}")
                 
                 # Display cost information
                 if selected_patient.trip_distance:
                     cost_service = CostCalculationService(self.db_service)
                     cost_info = cost_service.calculate_trip_cost(selected_patient.trip_distance)
                     
-                    st.markdown("---")
-                    st.markdown("##### 📊 Trip Cost Summary")
+                    st.subheader("📊 Trip Cost Summary")
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Distance", f"{selected_patient.trip_distance:.1f} km")
+                        st.metric("Distance", f"{selected_patient.trip_distance} km")
                     with col2:
                         st.metric("Fuel Cost", f"KSh {cost_info['fuel_cost_ksh']:,.0f}")
                     with col3:
                         st.metric("Total Cost", f"KSh {cost_info['total_cost_ksh']:,.0f}")
                 
-                st.markdown("---")
-                st.markdown("##### 🩺 Vital Signs at Handover")
+                st.subheader("Vital Signs at Handover")
                 col1, col2 = st.columns(2)
                 with col1:
                     blood_pressure = st.text_input("Blood Pressure", value="120/80")
                     heart_rate = st.number_input("Heart Rate (bpm)", min_value=0, max_value=200, value=72)
                 with col2:
-                    temperature = st.number_input("Temperature (°C)", min_value=30.0, max_value=45.0, value=36.6, step=0.1)
+                    temperature = st.number_input("Temperature (°C)", min_value=30.0, max_value=45.0, value=36.6)
                     oxygen_saturation = st.number_input("Oxygen Saturation (%)", min_value=0, max_value=100, value=98)
                 
-                st.markdown("##### 📋 Handover Details")
+                st.subheader("Handover Details")
                 receiving_physician = st.text_input("Receiving Physician*")
-                handover_notes = st.text_area("Handover Notes", height=80)
+                handover_notes = st.text_area("Handover Notes")
                 
-                with st.expander("📝 Additional Information"):
-                    condition_changes = st.text_area("Condition Changes During Transfer", height=60)
-                    interventions = st.text_area("Interventions During Transfer", height=60)
-                    medications_administered = st.text_area("Medications Administered", height=60)
+                with st.expander("Additional Information"):
+                    condition_changes = st.text_area("Condition Changes During Transfer")
+                    interventions = st.text_area("Interventions During Transfer")
+                    medications_administered = st.text_area("Medications Administered")
                 
-                submitted = st.form_submit_button("✅ Complete Handover", use_container_width=True, type="primary")
+                submitted = st.form_submit_button("Complete Handover", use_container_width=True)
                 if submitted:
                     if not receiving_physician:
                         st.error("Please enter the receiving physician")
                     else:
-                        # Recalculate MEWS score at handover
-                        mews_result = MEWSTriage.calculate_score(
-                            16, heart_rate, 
-                            int(blood_pressure.split('/')[0]) if '/' in blood_pressure else 120,
-                            temperature, oxygen_saturation, 'Alert'
-                        )
-                        
+                        # Calculate final costs
                         distance_covered = selected_patient.trip_distance or 0
                         cost_service = CostCalculationService(self.db_service)
                         cost_info = cost_service.calculate_trip_cost(distance_covered)
@@ -3578,24 +3045,20 @@ class HandoverUI:
                             'created_by': st.session_state.user['id'],
                             'distance_covered': distance_covered,
                             'fuel_cost': cost_info['fuel_cost_ksh'],
-                            'total_cost': cost_info['total_cost_ksh'],
-                            'mews_score': mews_result['total_score'],
-                            'mews_risk_level': mews_result['risk_level']
+                            'total_cost': cost_info['total_cost_ksh']
                         }
                         handover = HandoverForm(**handover_data)
                         session.add(handover)
                         
                         selected_patient.status = 'Completed'
                         selected_patient.receiving_physician = receiving_physician
-                        selected_patient.mews_score = mews_result['total_score']
-                        selected_patient.mews_risk_level = mews_result['risk_level']
                         session.commit()
                         
-                        st.success("✅ Handover completed successfully!")
+                        st.success("Handover completed successfully!")
                         st.balloons()
 
     def _display_handover_history(self):
-        st.subheader("📚 Handover History")
+        st.subheader("Handover History")
         
         with self.db_service.get_session() as session:
             user_hospital = st.session_state.user['hospital']
@@ -3609,24 +3072,27 @@ class HandoverUI:
                 
             if handovers:
                 for handover in handovers:
-                    with st.expander(f"📄 {handover.patient_name} - {handover.transfer_time.strftime('%d %b %Y %H:%M')}"):
+                    with st.expander(f"{handover.patient_name} - {handover.transfer_time.strftime('%Y-%m-%d %H:%M')}"):
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.write(f"**Patient ID:** {handover.patient_id[:8]}")
+                            st.write(f"**Patient ID:** {handover.patient_id}")
                             st.write(f"**Age:** {handover.age}")
                             st.write(f"**Gender:** {handover.gender}")
                             st.write(f"**Condition:** {handover.condition}")
                             st.write(f"**Referring Hospital:** {handover.referring_hospital}")
-                        with col2:
                             st.write(f"**Receiving Hospital:** {handover.receiving_hospital}")
+                        with col2:
                             st.write(f"**Referring Physician:** {handover.referring_physician}")
                             st.write(f"**Receiving Physician:** {handover.receiving_physician}")
                             st.write(f"**Ambulance:** {handover.ambulance_id}")
-                            if handover.mews_score is not None:
-                                st.write(f"**MEWS Score:** {handover.mews_score} - {handover.mews_risk_level}")
+                            st.write(f"**Handover Time:** {handover.transfer_time.strftime('%Y-%m-%d %H:%M')}")
+                            if handover.distance_covered:
+                                st.write(f"**Distance Covered:** {handover.distance_covered} km")
+                            if handover.total_cost:
+                                st.write(f"**Total Cost:** KSh {handover.total_cost:,.0f}")
                         
                         if handover.vital_signs:
-                            st.markdown("##### Vital Signs at Handover")
+                            st.subheader("Vital Signs at Handover")
                             vitals = handover.vital_signs
                             col1, col2, col3, col4 = st.columns(4)
                             with col1:
@@ -3638,19 +3104,8 @@ class HandoverUI:
                             with col4:
                                 st.metric("SpO2", f"{vitals.get('oxygen_saturation', 'N/A')}%")
                         
-                        if handover.distance_covered or handover.total_cost:
-                            st.markdown("##### Cost Summary")
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Distance", f"{handover.distance_covered or 0:.1f} km")
-                            with col2:
-                                st.metric("Fuel Cost", f"KSh {handover.fuel_cost or 0:,.0f}")
-                            with col3:
-                                st.metric("Total Cost", f"KSh {handover.total_cost or 0:,.0f}")
-                        
                         if handover.notes:
-                            st.markdown("##### Notes")
-                            st.write(handover.notes)
+                            st.write(f"**Handover Notes:** {handover.notes}")
             else:
                 st.info("No handover forms completed")
 
@@ -3666,7 +3121,7 @@ class HandoverUI:
             
             # CSV Download
             st.download_button(
-                label="📄 Download as CSV",
+                label="📄 Download Handover Data as CSV",
                 data=self._export_handovers_csv(handovers),
                 file_name=f"handover_reports_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -3674,7 +3129,7 @@ class HandoverUI:
             )
             
             # PDF Generation
-            if st.button("📋 Generate PDF Report", use_container_width=True, type="primary"):
+            if st.button("📋 Generate PDF Report", use_container_width=True):
                 pdf_data = self._generate_pdf_report(handovers)
                 st.download_button(
                     label="⬇️ Download PDF Report",
@@ -3688,7 +3143,7 @@ class HandoverUI:
         data = []
         for handover in handovers:
             data.append({
-                'Patient ID': handover.patient_id[:8],
+                'Patient ID': handover.patient_id,
                 'Patient Name': handover.patient_name,
                 'Age': handover.age,
                 'Gender': handover.gender,
@@ -3698,8 +3153,6 @@ class HandoverUI:
                 'Referring Physician': handover.referring_physician,
                 'Receiving Physician': handover.receiving_physician,
                 'Ambulance ID': handover.ambulance_id,
-                'MEWS Score': handover.mews_score,
-                'MEWS Risk': handover.mews_risk_level,
                 'Distance Covered (km)': handover.distance_covered,
                 'Total Cost (KSh)': handover.total_cost,
                 'Handover Time': handover.transfer_time.strftime('%Y-%m-%d %H:%M')
@@ -3708,6 +3161,7 @@ class HandoverUI:
         return df.to_csv(index=False)
 
     def _generate_pdf_report(self, handovers):
+        """Generate PDF report for handovers"""
         from reportlab.lib.pagesizes import A4
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet
@@ -3719,39 +3173,43 @@ class HandoverUI:
         styles = getSampleStyleSheet()
         story = []
         
+        # Title
         title = Paragraph("Kisumu County Hospital - Handover Report", styles['Title'])
         story.append(title)
         story.append(Spacer(1, 12))
         
+        # Summary
         summary = Paragraph(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}<br/>Total Handovers: {len(handovers)}", styles['Normal'])
         story.append(summary)
         story.append(Spacer(1, 12))
         
-        data = [['Patient', 'Hospital', 'MEWS', 'Distance', 'Cost', 'Time']]
+        # Table data
+        data = [['Patient', 'Hospital', 'Distance (km)', 'Cost (KSh)', 'Time']]
         total_distance = 0
         total_cost = 0
         
         for handover in handovers:
             data.append([
                 handover.patient_name,
-                handover.receiving_hospital[:20] + '...' if len(handover.receiving_hospital) > 20 else handover.receiving_hospital,
-                f"{handover.mews_score or 'N/A'} - {handover.mews_risk_level or 'N/A'}",
-                f"{handover.distance_covered or 0:.1f}km",
-                f"KSh {handover.total_cost or 0:,.0f}",
-                handover.transfer_time.strftime('%d %b %H:%M')
+                handover.receiving_hospital,
+                f"{handover.distance_covered or 0:.1f}",
+                f"{handover.total_cost or 0:,.0f}",
+                handover.transfer_time.strftime('%m/%d %H:%M')
             ])
             total_distance += handover.distance_covered or 0
             total_cost += handover.total_cost or 0
         
-        data.append(['TOTAL', '', '', f"{total_distance:.1f}km", f"KSh {total_cost:,.0f}", ''])
+        # Add totals row
+        data.append(['TOTAL', '', f"{total_distance:.1f}", f"{total_cost:,.0f}", ''])
         
+        # Create table
         table = Table(data)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
             ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
@@ -3772,16 +3230,9 @@ class ReportsUI:
         self.analytics = analytics_service
     
     def display(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">📈 Reports & Analytics</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Comprehensive analytics and reporting dashboard
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("📈 Reports & Analytics")
         
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Performance", "🏥 Hospital", "🚑 Ambulance", "💰 Cost", "📤 Export"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Performance Metrics", "Hospital Analytics", "Ambulance Reports", "Cost Analytics", "Export Data"])
         
         with tab1:
             self._performance_metrics()
@@ -3795,8 +3246,7 @@ class ReportsUI:
             self._export_data()
 
     def _performance_metrics(self):
-        st.subheader("📊 Performance Metrics")
-        
+        st.subheader("Performance Metrics")
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("Start Date", datetime.now() - timedelta(days=30))
@@ -3804,128 +3254,82 @@ class ReportsUI:
             end_date = st.date_input("End Date", datetime.now())
         
         kpis = self.analytics.get_kpis()
-        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Total Referrals", kpis['total_referrals'])
         with col2:
             st.metric("Completion Rate", kpis['completion_rate'])
         with col3:
-            st.metric("Active Transfers", kpis['active_referrals'])
+            st.metric("Avg Response Time", kpis['avg_response_time'])
         with col4:
-            st.metric("High Risk Patients", kpis['high_risk_patients'])
+            st.metric("Active Transfers", kpis['active_referrals'])
         
-        st.markdown("---")
-        st.subheader("📈 Referral Trends")
-        
+        st.subheader("Response Time Trends")
         trends_data = self.analytics.get_referral_trends()
         if not trends_data.empty:
-            fig = px.line(
-                trends_data, 
-                x='date', 
-                y='count',
-                line_shape='spline',
-                markers=True,
-                title="Daily Referral Trends"
-            )
-            fig.update_layout(height=350)
+            fig = px.line(trends_data, x='date', y='count', title="Referral Trends")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No trend data available")
         
-        st.markdown("---")
-        st.subheader("🩺 MEWS Risk Distribution")
-        
-        mews_stats = self.analytics.get_mews_stats()
-        if sum(mews_stats.values()) > 0:
-            fig = px.pie(
-                values=list(mews_stats.values()),
-                names=list(mews_stats.keys()),
-                color=list(mews_stats.keys()),
-                color_discrete_map={
-                    'Low': '#4CAF50',
-                    'Medium': '#FFC107',
-                    'High': '#FF9800',
-                    'Critical': '#F44336'
-                },
-                title="Patient Risk Distribution"
-            )
-            fig.update_layout(height=350)
-            st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Referral Reasons")
+        with self.db_service.get_session() as session:
+            patients = session.query(Patient).all()
+            if patients:
+                conditions = [p.condition for p in patients]
+                condition_counts = pd.Series(conditions).value_counts()
+                fig = px.pie(values=condition_counts.values, names=condition_counts.index,
+                            title="Referral Reasons Distribution")
+                st.plotly_chart(fig, use_container_width=True)
 
     def _hospital_analytics(self):
-        st.subheader("🏥 Hospital Performance")
-        
+        st.subheader("Hospital Performance")
         hospitals_stats = self.analytics.get_hospital_stats()
         if not hospitals_stats.empty:
             hospital_referrals = hospitals_stats.groupby('hospital')['count'].sum().reset_index()
-            hospital_referrals = hospital_referrals.sort_values('count', ascending=True)
-            
-            fig = px.bar(
-                hospital_referrals, 
-                x='count', 
-                y='hospital',
-                orientation='h',
-                title="Total Referrals by Hospital",
-                color='count',
-                color_continuous_scale='Blues'
-            )
-            fig.update_layout(height=400)
+            fig = px.bar(hospital_referrals, x='hospital', y='count', title="Total Referrals by Hospital")
             st.plotly_chart(fig, use_container_width=True)
             
-            st.subheader("Referral Status Distribution")
-            fig = px.sunburst(
-                hospitals_stats, 
-                path=['hospital', 'status'], 
-                values='count',
-                title="Referral Status by Hospital"
-            )
-            fig.update_layout(height=450)
+            fig = px.sunburst(hospitals_stats, path=['hospital', 'status'], values='count',
+                             title="Referral Status by Hospital")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No hospital data available")
 
     def _ambulance_reports(self):
-        st.subheader("🚑 Ambulance Utilization")
-        
+        st.subheader("Ambulance Utilization")
         with self.db_service.get_session() as session:
             ambulances = session.query(Ambulance).all()
-            
             if ambulances:
                 status_counts = {}
                 for ambulance in ambulances:
                     status_counts[ambulance.status] = status_counts.get(ambulance.status, 0) + 1
                 
-                fig = px.pie(
-                    values=list(status_counts.values()), 
-                    names=list(status_counts.keys()),
-                    title="Ambulance Status Distribution",
-                    color_discrete_sequence=px.colors.qualitative.Set3
-                )
-                fig.update_layout(height=350)
+                fig = px.pie(values=list(status_counts.values()), names=list(status_counts.keys()),
+                            title="Ambulance Status Distribution")
                 st.plotly_chart(fig, use_container_width=True)
                 
-                st.markdown("---")
-                st.subheader("Ambulance Details")
-                
+                st.subheader("Ambulance Utilization Details")
                 ambulance_data = []
                 for ambulance in ambulances:
+                    utilization = "High" if ambulance.status != 'Available' else "Low"
                     ambulance_data.append({
                         'Ambulance ID': ambulance.ambulance_id,
                         'Driver': ambulance.driver_name,
                         'Status': ambulance.status,
+                        'Utilization': utilization,
+                        'Current Patient': ambulance.current_patient or 'None',
+                        'Location': ambulance.current_location,
                         'Fuel Level': f"{ambulance.fuel_level:.1f}%",
                         'Total Distance': f"{ambulance.total_distance_traveled:,.1f} km",
-                        'Total Cost': f"KSh {ambulance.total_fuel_cost:,.0f}",
-                        'Savings': f"KSh {ambulance.cost_savings:,.0f}"
+                        'Total Cost': f"KSh {ambulance.total_fuel_cost:,.0f}"
                     })
-                st.dataframe(pd.DataFrame(ambulance_data), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(ambulance_data), use_container_width=True)
             else:
                 st.info("No ambulance data available")
 
     def _cost_analytics(self):
-        st.subheader("💰 Cost Analytics")
-        
+        st.subheader("Cost Analytics")
         cost_data = self.analytics.get_cost_analytics()
         
         if cost_data['total_trip_costs'] > 0:
@@ -3937,38 +3341,37 @@ class ReportsUI:
             with col3:
                 st.metric("Net Cost", f"KSh {cost_data['total_trip_costs'] - cost_data['total_trip_savings']:,.0f}")
             
-            st.markdown("---")
             fig = go.Figure()
             fig.add_trace(go.Bar(
                 x=cost_data['months'],
                 y=cost_data['monthly_costs'],
                 name='Costs',
-                marker_color='#F44336'
+                marker_color='red'
             ))
             fig.add_trace(go.Bar(
                 x=cost_data['months'],
                 y=cost_data['monthly_savings'],
                 name='Savings',
-                marker_color='#4CAF50'
+                marker_color='green'
             ))
             fig.update_layout(
                 title='Monthly Costs vs Savings',
                 barmode='group',
                 xaxis_title='Month',
-                yaxis_title='Amount (KSh)',
-                height=400
+                yaxis_title='Amount (KSh)'
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No cost data available yet")
 
     def _export_data(self):
-        st.subheader("📤 Data Export")
+        st.subheader("Data Export")
         
         col1, col2 = st.columns(2)
         with col1:
+            # CSV Exports
             st.download_button(
-                label="📊 Referrals CSV",
+                label="📊 Export Referrals as CSV",
                 data=self._export_referrals_csv(),
                 file_name=f"referrals_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -3976,7 +3379,7 @@ class ReportsUI:
             )
             
             st.download_button(
-                label="🚑 Ambulance Data CSV",
+                label="🚑 Export Ambulance Data as CSV",
                 data=self._export_ambulances_csv(),
                 file_name=f"ambulances_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -3984,7 +3387,7 @@ class ReportsUI:
             )
             
             st.download_button(
-                label="💰 Cost Data CSV",
+                label="💰 Export Cost Data as CSV",
                 data=self._export_cost_data_csv(),
                 file_name=f"cost_data_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv",
@@ -3992,7 +3395,8 @@ class ReportsUI:
             )
         
         with col2:
-            if st.button("📄 Generate PDF Report", use_container_width=True, type="primary"):
+            # PDF Reports
+            if st.button("📄 Generate Comprehensive PDF Report", use_container_width=True):
                 pdf_data = self._generate_comprehensive_pdf()
                 st.download_button(
                     label="⬇️ Download PDF Report",
@@ -4002,7 +3406,7 @@ class ReportsUI:
                     use_container_width=True
                 )
             
-            if st.button("📈 Export Analytics JSON", use_container_width=True):
+            if st.button("📈 Export Analytics Dashboard", use_container_width=True):
                 analytics_data = self._export_analytics_data()
                 st.download_button(
                     label="⬇️ Download Analytics Data",
@@ -4018,7 +3422,7 @@ class ReportsUI:
             data = []
             for patient in patients:
                 data.append({
-                    'Patient ID': patient.patient_id[:8],
+                    'Patient ID': patient.patient_id,
                     'Name': patient.name,
                     'Age': patient.age,
                     'Gender': patient.gender,
@@ -4026,12 +3430,11 @@ class ReportsUI:
                     'Referring Hospital': patient.referring_hospital,
                     'Receiving Hospital': patient.receiving_hospital,
                     'Status': patient.status,
-                    'MEWS Score': patient.mews_score,
-                    'MEWS Risk': patient.mews_risk_level,
                     'Referral Time': patient.referral_time,
                     'Assigned Ambulance': patient.assigned_ambulance,
                     'Trip Distance': patient.trip_distance,
-                    'Trip Cost': patient.trip_fuel_cost
+                    'Trip Cost': patient.trip_fuel_cost,
+                    'Actual Distance Covered': patient.actual_distance_covered
                 })
             df = pd.DataFrame(data)
             return df.to_csv(index=False)
@@ -4047,6 +3450,7 @@ class ReportsUI:
                     'Contact': ambulance.driver_contact,
                     'Status': ambulance.status,
                     'Location': ambulance.current_location,
+                    'Current Patient': ambulance.current_patient,
                     'Fuel Level': ambulance.fuel_level,
                     'Total Distance': ambulance.total_distance_traveled,
                     'Total Cost': ambulance.total_fuel_cost,
@@ -4062,20 +3466,20 @@ class ReportsUI:
             for patient in patients:
                 if patient.trip_distance and patient.trip_fuel_cost:
                     data.append({
-                        'Patient ID': patient.patient_id[:8],
+                        'Patient ID': patient.patient_id,
                         'Patient Name': patient.name,
                         'Distance (km)': patient.trip_distance,
                         'Fuel Cost (KSh)': patient.trip_fuel_cost,
                         'Cost Savings (KSh)': patient.trip_cost_savings,
                         'Referring Hospital': patient.referring_hospital,
                         'Receiving Hospital': patient.receiving_hospital,
-                        'MEWS Score': patient.mews_score,
                         'Completion Time': patient.updated_at
                     })
             df = pd.DataFrame(data)
             return df.to_csv(index=False)
 
     def _generate_comprehensive_pdf(self):
+        """Generate a comprehensive PDF report"""
         from reportlab.lib.pagesizes import A4
         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet
@@ -4087,17 +3491,18 @@ class ReportsUI:
         styles = getSampleStyleSheet()
         story = []
         
+        # Title
         title = Paragraph("Kisumu County Hospital - Comprehensive Report", styles['Title'])
         story.append(title)
         story.append(Spacer(1, 12))
         
+        # Summary
         kpis = self.analytics.get_kpis()
         summary_text = f"""
         Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
         Total Referrals: {kpis['total_referrals']}
         Active Transfers: {kpis['active_referrals']}
         Available Ambulances: {kpis['available_ambulances']}
-        High Risk Patients: {kpis['high_risk_patients']}
         Total Fuel Cost: KSh {kpis['total_fuel_cost']:,.0f}
         Total Savings: KSh {kpis['total_cost_savings']:,.0f}
         """
@@ -4105,24 +3510,7 @@ class ReportsUI:
         story.append(summary)
         story.append(Spacer(1, 12))
         
-        # MEWS Distribution
-        mews_stats = self.analytics.get_mews_stats()
-        if sum(mews_stats.values()) > 0:
-            mews_data = [['Risk Level', 'Count']]
-            for level, count in mews_stats.items():
-                mews_data.append([level, str(count)])
-            mews_table = Table(mews_data)
-            mews_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            story.append(Paragraph("MEWS Risk Distribution", styles['Heading2']))
-            story.append(mews_table)
-            story.append(Spacer(1, 12))
-        
-        # Cost Summary
+        # Cost Summary Table
         cost_data = self.analytics.get_cost_analytics()
         if cost_data['total_trip_costs'] > 0:
             cost_table_data = [
@@ -4132,13 +3520,19 @@ class ReportsUI:
                 ['Net Cost', f"KSh {cost_data['total_trip_costs'] - cost_data['total_trip_savings']:,.0f}"],
                 ['Cost Efficiency', f"{(cost_data['total_trip_savings'] / cost_data['total_trip_costs'] * 100) if cost_data['total_trip_costs'] > 0 else 0:.1f}%"]
             ]
+            
             cost_table = Table(cost_table_data)
             cost_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
+            
             story.append(Paragraph("Cost Summary", styles['Heading2']))
             story.append(cost_table)
             story.append(Spacer(1, 12))
@@ -4148,19 +3542,20 @@ class ReportsUI:
         return buffer.getvalue()
 
     def _export_analytics_data(self):
+        """Export analytics data as JSON"""
         import json
+        
         analytics_data = {
             'timestamp': datetime.now().isoformat(),
             'kpis': self.analytics.get_kpis(),
             'cost_analytics': self.analytics.get_cost_analytics(),
-            'mews_distribution': self.analytics.get_mews_stats(),
             'summary': {
                 'total_referrals': self.analytics.get_kpis()['total_referrals'],
                 'total_cost': self.analytics.get_kpis()['total_fuel_cost'],
-                'total_savings': self.analytics.get_kpis()['total_cost_savings'],
-                'high_risk_patients': self.analytics.get_kpis()['high_risk_patients']
+                'total_savings': self.analytics.get_kpis()['total_cost_savings']
             }
         }
+        
         return json.dumps(analytics_data, indent=2)
 
 # Enhanced Main Application
@@ -4181,82 +3576,22 @@ class HospitalReferralApp:
             initial_sidebar_state="expanded"
         )
         
-        # Professional styling
         st.markdown("""
         <style>
-        /* Main header styling */
         .main-header {
             font-size: 2.5rem;
-            color: #1a1a2e;
+            color: #1f77b4;
             text-align: center;
             margin-bottom: 2rem;
-            font-weight: 600;
         }
-        
-        /* Metric card styling */
         .metric-card {
-            background-color: white;
-            padding: 1.25rem;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            border-left: 4px solid #1a1a2e;
-            transition: transform 0.2s;
-        }
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        }
-        
-        /* Button styling */
-        .stButton button {
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-        .stButton button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        /* Expander styling */
-        .streamlit-expanderHeader {
-            font-weight: 500;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-        }
-        
-        /* Dataframe styling */
-        .dataframe {
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        /* Tab styling */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        .stTabs [data-baseweb="tab"] {
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-weight: 500;
-        }
-        
-        /* Sidebar styling */
-        .css-1d391kg {
-            background-color: #f8f9fa;
-        }
-        
-        /* Status badges */
-        .status-badge {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        
-        /* Progress bar styling */
-        .stProgress > div > div {
+            background-color: #f0f2f6;
+            padding: 1rem;
             border-radius: 10px;
+            border-left: 5px solid #1f77b4;
+        }
+        .stButton button {
+            width: 100%;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -4351,51 +3686,34 @@ class HospitalReferralApp:
             st.error("An unexpected error occurred. Please refresh the page.")
     
     def render_landing_page(self):
+        st.title("🏥 Kisumu County Hospital Referral System")
+        
         st.markdown("""
-        <div style="text-align: center; padding: 2rem 0;">
-            <h1 style="font-size: 3rem; color: #1a1a2e;">🏥 Kisumu County</h1>
-            <h2 style="font-size: 2rem; color: #0f3460;">Hospital Referral & Ambulance Tracking System</h2>
-            <p style="font-size: 1.2rem; color: #666; margin-top: 1rem;">
-                Integrated healthcare referral management with MEWS triage and cost optimization
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        ## Welcome to the Hospital Referral & Ambulance Tracking System
+        
+        Please login using the sidebar to access the system.
+        
+        **Key Features:**
+        - 🚑 Real-time ambulance tracking with cost analysis
+        - 💰 Advanced cost management and analytics
+        - 📊 Performance monitoring with automatic notifications
+        - 📱 Enhanced communication center
+        - 📈 Comprehensive reporting with cost tracking
+        
+        **System Benefits:**
+        - Reduced Response Time: Average response time under 15 minutes
+        - Cost Efficiency: Up to 20% savings through optimized routing and fuel management
+        - Real-time Tracking: Live ambulance location and status updates with cost analysis
+        - Automated Communication: Instant notifications to all stakeholders with message templates
+        """)
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown("""
-            <div style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; height: 200px;">
-                <div style="font-size: 2.5rem;">🚑</div>
-                <h3 style="color: #1a1a2e;">Real-time Tracking</h3>
-                <p style="color: #666;">Live ambulance location with cost analysis</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Hospitals in Network", len(HOSPITAL_LOCATIONS))
         with col2:
-            st.markdown("""
-            <div style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; height: 200px;">
-                <div style="font-size: 2.5rem;">🩺</div>
-                <h3 style="color: #1a1a2e;">MEWS Triage</h3>
-                <p style="color: #666;">Evidence-based patient risk assessment</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Ambulance Fleet", len(AMBULANCE_DATA))
         with col3:
-            st.markdown("""
-            <div style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; height: 200px;">
-                <div style="font-size: 2.5rem;">💰</div>
-                <h3 style="color: #1a1a2e;">Cost Optimization</h3>
-                <p style="color: #666;">Efficient resource utilization and savings</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("---")
-        st.markdown("""
-        <div style="text-align: center; padding: 2rem 0;">
-            <p style="color: #888;">🔐 Please login using the sidebar to access the system</p>
-            <p style="color: #aaa; font-size: 0.9rem;">Kisumu County Department of Health - Emergency Referral Network</p>
-        </div>
-        """, unsafe_allow_html=True)
+            st.metric("Coverage Area", "Kisumu County")
     
     def render_main_application(self):
         self.render_user_info()
@@ -4411,26 +3729,21 @@ class HospitalReferralApp:
         
         st.markdown("---")
         st.markdown(
-            "<div style='text-align: center; color: #888; font-size: 0.85rem;'>"
-            "🏥 Kisumu County Hospital Referral System • Secure • Reliable • Cost-Efficient"
-            "</div>",
-            unsafe_allow_html=True
+            "**Kisumu County Hospital Referral System** | "
+            "Secure • Reliable • Cost-Efficient"
         )
     
     def render_user_info(self):
         st.sidebar.markdown("---")
         user = st.session_state.user
         
-        st.sidebar.markdown(f"""
-        <div style="background: white; padding: 1rem; border-radius: 12px; margin: 1rem 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-            <div style="font-weight: 600; color: #1a1a2e;">👤 {user['name']}</div>
-            <div style="font-size: 0.85rem; color: #666;">{user['role']}</div>
-            <div style="font-size: 0.85rem; color: #888;">🏥 {user['hospital']}</div>
-            <div style="font-size: 0.75rem; color: #aaa; margin-top: 0.5rem;">
-                Last login: {user.get('last_login', datetime.now()).strftime('%d %b %Y %H:%M') if user.get('last_login') else 'First login'}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.sidebar.success(f"**Logged in as:** {user['name']}")
+        st.sidebar.write(f"**Role:** {user['role']}")
+        st.sidebar.write(f"**Hospital:** {user['hospital']}")
+        
+        if user.get('last_login'):
+            last_login = user['last_login'].strftime('%Y-%m-%d %H:%M')
+            st.sidebar.write(f"**Last Login:** {last_login}")
     
     def render_admin_interface(self):
         st.sidebar.title("Admin Navigation")
@@ -4505,14 +3818,7 @@ class HospitalReferralApp:
         self.driver_ui.display_driver_dashboard()
     
     def render_user_management(self):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 2rem; border-radius: 10px; margin-bottom: 2rem;">
-            <h1 style="color: white; text-align: center; margin: 0;">👥 User Management</h1>
-            <p style="color: rgba(255,255,255,0.7); text-align: center; margin-top: 0.5rem;">
-                Manage system users and their roles
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.title("👥 User Management")
         
         if not self.auth.require_auth(['Admin']):
             return
@@ -4521,14 +3827,14 @@ class HospitalReferralApp:
         with col1:
             st.subheader("Add New User")
             with st.form("add_user_form"):
-                username = st.text_input("Username", placeholder="Choose a username")
-                password = st.text_input("Password", type="password", placeholder="Enter password")
-                email = st.text_input("Email", placeholder="user@hospital.go.ke")
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                email = st.text_input("Email")
                 role = st.selectbox("Role", ["Admin", "Hospital Staff", "Ambulance Driver"])
                 hospital = st.selectbox("Hospital", self.auth._get_hospital_options())
-                name = st.text_input("Full Name", placeholder="Dr. John Doe")
+                name = st.text_input("Full Name")
                 
-                if st.form_submit_button("➕ Add User", use_container_width=True, type="primary"):
+                if st.form_submit_button("Add User", use_container_width=True):
                     if all([username, password, email, name]):
                         user_data = {
                             'username': username,
@@ -4555,9 +3861,9 @@ class HospitalReferralApp:
                             'Name': user.name,
                             'Role': user.role,
                             'Hospital': user.hospital,
-                            'Status': '🟢 Active' if user.is_active else '🔴 Inactive'
+                            'Status': 'Active' if user.is_active else 'Inactive'
                         })
-                    st.dataframe(pd.DataFrame(user_data), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(user_data), use_container_width=True)
                 else:
                     st.info("No users found")
 
@@ -4568,3 +3874,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
