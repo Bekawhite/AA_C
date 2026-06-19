@@ -67,8 +67,8 @@ class CostConfig:
 
 @dataclass
 class AppConfig:
-    page_title: str = "Kisumu County Hospital Referral System"
-    page_icon: str = "🏥"
+    page_title: str = "Afyalink Referral System"
+    page_icon: str = "🩺"
     layout: str = "wide"
     notification_check_interval: int = 30
     location_update_interval: int = 10
@@ -332,7 +332,7 @@ class Authentication:
             return False
 
     def setup_auth_ui(self):
-        st.sidebar.title("🔐 Authentication")
+        st.sidebar.title(" Authentication")
         
         if not self.session.authenticated:
             tab1, tab2 = st.sidebar.tabs(["Login", "Register"])
@@ -913,7 +913,7 @@ Reply to this message with your ETA or any issues.
         ambulance = data['ambulance']
         
         message = f"""
-🚑 PATIENT PICKED UP - AMBULANCE EN ROUTE
+ PATIENT PICKED UP - AMBULANCE EN ROUTE
 
 Patient: {patient.name}
 Ambulance: {ambulance.ambulance_id}
@@ -1851,7 +1851,7 @@ class CostManagementUI:
         self.cost_service = CostCalculationService(db_service)
     
     def display(self):
-        st.title("💰 Cost Management & Analytics")
+        st.title(" Cost Management & Analytics")
         
         tab1, tab2, tab3, tab4 = st.tabs(["Cost Overview", "Fuel Management", "Savings Analysis", "Budget Planning"])
         
@@ -1915,7 +1915,7 @@ class CostManagementUI:
             st.info("No cost data available yet. Costs will appear after patient handovers are completed.")
 
     def _display_fuel_management(self):
-        st.subheader("⛽ Fuel Management")
+        st.subheader("Fuel Management")
         
         with self.db_service.get_session() as session:
             ambulances = session.query(Ambulance).all()
@@ -2079,7 +2079,7 @@ class TrackingUI:
         self.cost_service = cost_service
     
     def display(self):
-        st.title("🚑 Ambulance Tracking & Cost Management")
+        st.title("Ambulance Tracking & Cost Management")
         
         col1, col2 = st.columns([3, 1])
         with col2:
@@ -2210,7 +2210,7 @@ class TrackingUI:
                 st.metric("Status", ambulance.status)
             
             # Enhanced map display for individual patient with real coordinates
-            st.subheader("📍 Current Location")
+            st.subheader(" Current Location")
             if ambulance.latitude and ambulance.longitude:
                 # Create map data with different colors for specific locations
                 map_data = []
@@ -3694,17 +3694,17 @@ class HospitalReferralApp:
         Please login using the sidebar to access the system.
         
         **Key Features:**
-        - 🚑 Real-time ambulance tracking with cost analysis
-        - 💰 Advanced cost management and analytics
-        - 📊 Performance monitoring with automatic notifications
-        - 📱 Enhanced communication center
-        - 📈 Comprehensive reporting with cost tracking
+        -  Real-time ambulance tracking with cost analysis
+        -  Advanced cost management and analytics
+        -  Performance monitoring with automatic notifications
+        -  Enhanced communication center
+        -  Comprehensive reporting with cost tracking
         
         **System Benefits:**
         - Reduced Response Time: Average response time under 15 minutes
         - Cost Efficiency: Up to 20% savings through optimized routing and fuel management
         - Real-time Tracking: Live ambulance location and status updates with cost analysis
-        - Automated Communication: Instant notifications to all stakeholders with message templates
+        - Automated Communication: Instant notifications to all stakeholders 
         """)
         
         col1, col2, col3 = st.columns(3)
