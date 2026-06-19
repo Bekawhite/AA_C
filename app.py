@@ -3686,7 +3686,7 @@ class HospitalReferralApp:
             st.error("An unexpected error occurred. Please refresh the page.")
     
     def render_landing_page(self):
-        st.title("🏥 Kisumu County Hospital Referral System")
+        st.title("🩺 AfyaLink")
         
         st.markdown("""
         ## Welcome to the Hospital Referral & Ambulance Tracking System
@@ -3729,7 +3729,7 @@ class HospitalReferralApp:
         
         st.markdown("---")
         st.markdown(
-            "**Kisumu County Hospital Referral System** | "
+            "**Afyalink Hospital Referral System** | "
             "Secure • Reliable • Cost-Efficient"
         )
     
